@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Style Studio — Avarion</title>
+  <meta name="description" content="Your personal AI fashion makeover studio. Try on outfits, accessories and makeup in 3D." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👗</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/animations.css" />
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* Studio Layout */
+  body { font-family: "Plus Jakarta Sans", -apple-system, sans-serif; background: #0A0A10; color: #EDECE8; }
+  .studio-title { font-family: "Instrument Serif", Georgia, serif !important; font-size: 1.45rem !important; letter-spacing: -0.02em !important; font-weight: 400 !important; }
+  .sidebar-tab { font-size: 0.76rem !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; font-weight: 600 !important; }
+  .wardrobe-item { border: 1px solid rgba(255,255,255,0.08) !important; background: rgba(255,255,255,0.02) !important; border-radius: 8px !important; transition: all 0.25s cubic-bezier(0.16,1,0.3,1) !important; }
+  .wardrobe-item:hover { border-color: rgba(255,255,255,0.3) !important; transform: translateY(-2px) !important; background: rgba(255,255,255,0.05) !important; }
+  .wardrobe-item.selected { border-color: #FFFFFF !important; background: rgba(255,255,255,0.08) !important; box-shadow: 0 0 20px rgba(255,255,255,0.12) !important; }
+  .studio-nav { background: rgba(10,10,16,0.92) !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; }
+  .sidebar { background: #0D0D14 !important; border-right: 1px solid rgba(255,255,255,0.06) !important; }
+  .right-panel { background: #0D0D14 !important; border-left: 1px solid rgba(255,255,255,0.06) !important; }
+  .viewport { background: radial-gradient(circle at 50% 35%, #181824 0%, #08080E 100%) !important; }
+    body { overflow: hidden; height: 100vh; }
+
+    .studio-layout {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 1fr var(--panel-width);
+      grid-template-rows: var(--nav-height) 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Studio Navbar */
+    .studio-nav {
+      grid-column: 1 / -1;
+      height: var(--nav-height);
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-4);
+      border-bottom: 1px solid var(--clr-border);
+      background: rgba(6,6,15,0.9);
+      backdrop-filter: blur(16px);
+      gap: var(--space-4);
+      z-index: 10;
+    }
+
+    .studio-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-left: var(--space-3);
+    }
+
+    .studio-event-badge {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 6px 14px;
+      background: rgba(155,93,229,0.12);
+      border: 1px solid rgba(155,93,229,0.25);
+      border-radius: var(--radius-full);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--clr-primary-light);
+    }
+
+    .studio-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-left: auto;
+    }
+
+    /* Left Sidebar */
+    .sidebar {
+      background: var(--clr-bg-2);
+      border-right: 1px solid var(--clr-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      padding: var(--space-3);
+      gap: var(--space-1);
+      border-bottom: 1px solid var(--clr-border);
+      flex-wrap: wrap;
+    }
+
+    .sidebar-tab {
+      flex: 1;
+      min-width: 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: var(--space-2);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: var(--transition-fast);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--clr-text-3);
+    }
+    .sidebar-tab .tab-icon { font-size: 1.3rem; }
+    .sidebar-tab:hover { background: var(--clr-surface); color: var(--clr-text-2); }
+    .sidebar-tab.active { background: rgba(155,93,229,0.15); color: var(--clr-primary-light); }
+
+    .sidebar-content { flex: 1; overflow-y: auto; padding: var(--space-4); }
+
+    .category-panel { display: none; flex-direction: column; gap: var(--space-3); }
+    .category-panel.active { display: flex; }
+
+    .item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+    .wardrobe-item {
+      background: var(--clr-surface);
+      border: 2px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-3);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition-spring);
+      position: relative;
+    }
+    .wardrobe-item:hover { border-color: var(--clr-primary); transform: scale(1.03); }
+    .wardrobe-item.selected { border-color: var(--clr-primary); background: rgba(155,93,229,0.12); }
+    .wardrobe-item.selected::after {
+      content: '✓';
+      position: absolute;
+      top: 6px; right: 8px;
+      color: var(--clr-primary);
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+    .wardrobe-item .item-emoji { font-size: 2rem; margin-bottom: 6px; }
+    .wardrobe-item .item-name { font-size: 0.72rem; font-weight: 600; }
+    .wardrobe-item .item-color {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-top: 4px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--clr-text-3);
+      text-transform: uppercase;
+      margin-bottom: var(--space-2);
+    }
+
+    /* Center Viewport */
+    .viewport {
+      background: var(--clr-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .viewport-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 50% 70% at 50% 50%, rgba(155,93,229,0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 30% 40% at 20% 30%, rgba(241,91,181,0.05) 0%, transparent 60%);
+    }
+
+    .viewport-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(155,93,229,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(155,93,229,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    #mannequinCanvas {
+      position: relative;
+      z-index: 2;
+      border-radius: var(--radius-xl);
+    }
+
+    .viewport-controls {
+      position: absolute;
+      bottom: var(--space-6);
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: var(--space-2);
+      background: rgba(6,6,15,0.8);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-full);
+      padding: 8px;
+      backdrop-filter: blur(12px);
+      z-index: 3;
+    }
+
+    .viewport-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: var(--transition-fast);
+      cursor: pointer;
+    }
+    .viewport-btn:hover { background: var(--clr-surface-2); }
+
+    .mannequin-emoji-display {
+      font-size: 12rem;
+      line-height: 1;
+      animation: float 5s ease-in-out infinite;
+      filter: drop-shadow(0 20px 60px rgba(155,93,229,0.4));
+      position: relative;
+      z-index: 2;
+      transition: all 0.4s ease;
+      user-select: none;
+      cursor: grab;
+    }
+    .mannequin-emoji-display:active { cursor: grabbing; }
+
+    .outfit-layers {
+      position: absolute;
+      z-index: 3;
+      pointer-events: none;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 240px;
+      height: 360px;
+    }
+
+    .outfit-label {
+      position: absolute;
+      background: rgba(6,6,15,0.9);
+      border: 1px solid var(--clr-border-2);
+      border-radius: var(--radius-md);
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+      transition: var(--transition-base);
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .outfit-label:hover { border-color: var(--clr-primary); background: rgba(155,93,229,0.1); }
+    .outfit-label.top { top: 15%; left: -120%; }
+    .outfit-label.bottom { top: 55%; left: -120%; }
+    .outfit-label.shoes { bottom: 5%; left: -100%; }
+    .outfit-label.accessory-1 { top: 20%; right: -130%; }
+    .outfit-label.accessory-2 { top: 50%; right: -120%; }
+    .outfit-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* Sparkle effect on outfit change */
+    .sparkle {
+      position: absolute;
+      pointer-events: none;
+      animation: particleFly 0.8s ease-out forwards;
+      font-size: 1.2rem;
+    }
+
+    /* Right Panel */
+    .right-panel {
+      background: var(--clr-bg-2);
+      border-left: 1px solid var(--clr-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--clr-border);
+    }
+    .panel-tab {
+      flex: 1;
+      padding: var(--space-4);
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--clr-text-3);
+      transition: var(--transition-fast);
+      border-bottom: 2px solid transparent;
+    }
+    .panel-tab.active { color: var(--clr-primary); border-bottom-color: var(--clr-primary); }
+    .panel-tab:hover:not(.active) { color: var(--clr-text-2); }
+
+    .panel-body { flex: 1; overflow-y: auto; }
+    .panel-section { display: none; padding: var(--space-4); flex-direction: column; gap: var(--space-4); }
+    .panel-section.active { display: flex; }
+
+    /* AI Recommendation Card */
+    .rec-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      transition: var(--transition-base);
+    }
+    .rec-card:hover { border-color: var(--clr-primary); }
+
+    .rec-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    .rec-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-md);
+      background: var(--grad-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .rec-category { font-size: 0.72rem; color: var(--clr-text-3); letter-spacing: 0.05em; text-transform: uppercase; }
+    .rec-name { font-weight: 700; font-size: 0.95rem; }
+    .rec-desc { font-size: 0.82rem; color: var(--clr-text-2); line-height: 1.5; margin-bottom: var(--space-3); }
+    .rec-price { font-size: 0.8rem; font-weight: 600; color: var(--clr-green); }
+
+    .rec-actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+
+    /* Stylist Note */
+    .stylist-note {
+      background: linear-gradient(135deg, rgba(155,93,229,0.1), rgba(241,91,181,0.05));
+      border: 1px solid rgba(155,93,229,0.2);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+    .stylist-avatar { font-size: 2rem; margin-bottom: var(--space-3); }
+    .stylist-name { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; color: var(--clr-primary-light); text-transform: uppercase; margin-bottom: 6px; }
+    .stylist-text { font-size: 0.875rem; color: var(--clr-text-2); line-height: 1.65; font-style: italic; }
+
+    /* Makeup section */
+    .makeup-look-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+    .makeup-look-title { font-weight: 700; font-size: 1rem; margin-bottom: var(--space-2); }
+    .makeup-rows { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+    .makeup-row { display: flex; gap: var(--space-3); align-items: flex-start; }
+    .makeup-row-icon { font-size: 1.1rem; flex-shrink: 0; width: 24px; text-align: center; }
+    .makeup-row-label { font-size: 0.72rem; color: var(--clr-text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+    .makeup-row-val { font-size: 0.85rem; color: var(--clr-text-2); }
+
+    /* Color story */
+    .color-story-strip { display: flex; gap: 6px; align-items: center; }
+    .color-story-swatch { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.1); }
+
+    /* Trends panel */
+    .trend-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      cursor: pointer;
+      transition: var(--transition-base);
+    }
+    .trend-card:hover { border-color: var(--clr-primary); transform: translateX(3px); }
+    .trend-card-header { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+    .trend-color-bar {
+      display: flex;
+      gap: 4px;
+    }
+    .trend-color-dot { width: 14px; height: 14px; border-radius: 50%; }
+
+    /* Shopping cart float button */
+    .cart-fab {
+      position: absolute;
+      bottom: var(--space-6);
+      right: var(--space-4);
+      background: var(--grad-primary);
+      border-radius: var(--radius-full);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      box-shadow: 0 4px 20px var(--clr-primary-glow);
+      transition: var(--transition-spring);
+      z-index: 5;
+    }
+    .cart-fab:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 8px 32px var(--clr-primary-glow); }
+    .cart-count {
+      background: var(--clr-accent);
+      color: var(--clr-black);
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    /* AI Loading overlay */
+    .ai-loading {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(6,6,15,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 20;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-6);
+      border-radius: inherit;
+    }
+    .ai-loading.show { display: flex; }
+
+    .ai-pulse-ring {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 3px solid var(--clr-primary);
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+
+    /* Mobile warning */
+    @media (max-width: 900px) {
+      .studio-layout { grid-template-columns: 1fr; grid-template-rows: var(--nav-height) auto 1fr; }
+      .sidebar { display: none; }
+      .right-panel { height: 300px; }
+    }
+
+    /* ── Customizable 3D Mannequin Visualizer ── */
+    .mannequin-visualizer {
+      width: 220px;
+      height: 420px;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .mannequin-skeleton {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform-origin: center center;
+      transition: all 0.4s ease;
+    }
+    .mannequin-head {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--skin-color, #EBBF8F);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      position: absolute;
+      top: 15px;
+      overflow: hidden;
+      z-index: 5;
+      font-size: 2rem;
+      transition: background 0.3s ease;
+    }
+    .mannequin-head img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .mannequin-torso {
+      width: 64px;
+      height: 140px;
+      background: var(--skin-color, #EBBF8F);
+      border-radius: 30px;
+      position: absolute;
+      top: 90px;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.15);
+      z-index: 3;
+      transition: all 0.3s ease;
+    }
+    .mannequin-limb {
+      background: var(--skin-color, #EBBF8F);
+      border-radius: 10px;
+      position: absolute;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+    .arm-l {
+      width: 16px;
+      height: 120px;
+      top: 95px;
+      left: 54px;
+      transform-origin: top center;
+    }
+    .arm-r {
+      width: 16px;
+      height: 120px;
+      top: 95px;
+      right: 54px;
+      transform-origin: top center;
+    }
+    .leg-l {
+      width: 20px;
+      height: 160px;
+      top: 220px;
+      left: 78px;
+    }
+    .leg-r {
+      width: 20px;
+      height: 160px;
+      top: 220px;
+      right: 78px;
+    }
+
+    /* Body Type Modifiers */
+    .body-type-Hourglass .mannequin-torso {
+      border-radius: 30px 30px 45px 45px / 30px 30px 80px 80px;
+      clip-path: polygon(0 0, 100% 0, 85% 50%, 100% 100%, 0 100%, 15% 50%);
+    }
+    .body-type-Pear .mannequin-torso {
+      clip-path: polygon(25% 0, 75% 0, 100% 100%, 0 100%);
+    }
+    .body-type-Apple .mannequin-torso {
+      clip-path: polygon(5% 0, 95% 0, 100% 50%, 80% 100%, 20% 100%, 0 50%);
+      transform: scaleX(1.1);
+    }
+    .body-type-Rectangle .mannequin-torso {
+      border-radius: 10px;
+    }
+    .body-type-InvertedTriangle .mannequin-torso {
+      clip-path: polygon(0 0, 100% 0, 75% 100%, 25% 100%);
+    }
+  </style>
+</head>
+<body>
+<div class="studio-layout">
+
+  <!-- Studio Navbar -->
+  <nav class="studio-nav">
+    <a href="../index.html">
+      <div class="logo-icon" style="width:32px;height:32px;border-radius:8px;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;font-size:1rem;">👗</div>
+    </a>
+    <span class="studio-title">Avarion Studio</span>
+        <div class="studio-event-badge" id="eventBadge">
+      ✨ Editorial Style Studio
+    </div>
+    <!-- 2D / 3D Mode Toggle Switch -->
+    <div class="view-mode-toggle" style="display:flex; align-items:center; background:rgba(255,255,255,0.06); border:1px solid var(--clr-border); border-radius:var(--radius-full); padding:3px; gap:4px; margin-left:var(--space-2);">
+      <button type="button" id="btnMode2D" class="mode-btn active" style="background:#FFFFFF; color:#111111; font-weight:700; border:none; border-radius:var(--radius-full); padding:5px 14px; font-size:0.75rem; cursor:pointer; transition:all 0.2s;">2D Editorial</button>
+      <button type="button" id="btnMode3D" class="mode-btn" style="background:transparent; color:var(--clr-text-2); font-weight:600; border:none; border-radius:var(--radius-full); padding:5px 14px; font-size:0.75rem; cursor:pointer; transition:all 0.2s;">3D View</button>
+    </div>
+    <div class="studio-actions">
+      <button class="btn btn-secondary btn-sm" id="regenBtn" title="Ask AI for new recommendations">
+        <span>🤖</span> Re-style with AI
+      </button>
+      <button class="btn btn-primary btn-sm" id="shopBtn">
+        🛒 Shop This Look
+      </button>
+      <a href="onboarding.html" class="btn btn-ghost btn-sm">← Redo Wizard</a>
+    </div>
+  </nav>
+
+  <!-- Left Sidebar: Wardrobe -->
+  <aside class="sidebar">
+    <div class="sidebar-tabs" id="sidebarTabs">
+      <div class="sidebar-tab active" data-cat="tops"><span class="tab-icon">👕</span>Tops</div>
+      <div class="sidebar-tab" data-cat="bottoms"><span class="tab-icon">👖</span>Bottoms</div>
+      <div class="sidebar-tab" data-cat="dresses"><span class="tab-icon">👗</span>Dresses</div>
+      <div class="sidebar-tab" data-cat="shoes"><span class="tab-icon">👠</span>Shoes</div>
+      <div class="sidebar-tab" data-cat="accessories"><span class="tab-icon">💍</span>Acc.</div>
+      <div class="sidebar-tab" data-cat="makeup"><span class="tab-icon">💄</span>Makeup</div>
+    </div>
+
+    <div class="sidebar-content">
+      <!-- Tops -->
+      <div class="category-panel active" id="cat-tops">
+        <p class="section-label">Tops & Shirts</p>
+        <div class="item-grid" id="topGrid"></div>
+      </div>
+      <!-- Bottoms -->
+      <div class="category-panel" id="cat-bottoms">
+        <p class="section-label">Bottoms</p>
+        <div class="item-grid" id="bottomGrid"></div>
+      </div>
+      <!-- Dresses -->
+      <div class="category-panel" id="cat-dresses">
+        <p class="section-label">Dresses & Jumpsuits</p>
+        <div class="item-grid" id="dressGrid"></div>
+      </div>
+      <!-- Shoes -->
+      <div class="category-panel" id="cat-shoes">
+        <p class="section-label">Footwear</p>
+        <div class="item-grid" id="shoesGrid"></div>
+      </div>
+      <!-- Accessories -->
+      <div class="category-panel" id="cat-accessories">
+        <p class="section-label">Accessories</p>
+        <div class="item-grid" id="accGrid"></div>
+      </div>
+      <!-- Makeup -->
+      <div class="category-panel" id="cat-makeup">
+        <p class="section-label">Makeup Looks</p>
+        <div class="item-grid" id="makeupGrid"></div>
+        <div style="margin-top:var(--space-4); padding:var(--space-3); background:var(--clr-bg-3); border-radius:var(--radius-md); border:1px solid var(--clr-border);">
+          <p style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--clr-primary-light); font-weight:700; margin-bottom:var(--space-3);">Live Cosmetic Controls</p>
+          <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="font-size:0.8rem; color:var(--clr-text-2);">💋 Lipstick</label>
+              <input type="color" id="lipstickColorPicker" value="#E02148" style="border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; background:transparent;">
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="font-size:0.8rem; color:var(--clr-text-2);">🌸 Blush</label>
+              <input type="color" id="blushColorPicker" value="#FF7A85" style="border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; background:transparent;">
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="font-size:0.8rem; color:var(--clr-text-2);">👁️ Eyeliner</label>
+              <input type="color" id="eyelinerColorPicker" value="#1A1110" style="border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; background:transparent;">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Center: Mannequin Viewport -->
+  <main class="viewport" id="viewport">
+    <div class="viewport-bg"></div>
+    <div class="viewport-grid"></div>
+
+    <!-- Mannequin display -->
+        <div class="mannequin-visualizer" id="mannequinDisplay" style="position:relative;">
+            <!-- 2D Editorial Layered Mannequin -->
+      <div id="editorial2DContainer" style="width: 100%; height: 100%; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; pointer-events: auto;">
+        <div class="paperdoll-silhouette" id="paperdollWrapper" style="width: 280px; height: 500px; position: relative; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.5)); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);">
+          <!-- Layer 1: Body Silhouette SVG -->
+          <svg id="svgBodyLayer" viewBox="0 0 280 500" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1;"></svg>
+          <!-- Layer 2: Cosmetics / Makeup Canvas Overlay -->
+          <canvas id="face2DCanvas" width="280" height="500" style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none;"></canvas>
+          <!-- Layer 3: Undergarments / Bottoms SVG -->
+          <svg id="svgBottomLayer" viewBox="0 0 280 500" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 3; pointer-events: none;"></svg>
+          <!-- Layer 4: Tops SVG -->
+          <svg id="svgTopLayer" viewBox="0 0 280 500" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 4; pointer-events: none;"></svg>
+          <!-- Layer 5: Dresses SVG -->
+          <svg id="svgDressLayer" viewBox="0 0 280 500" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 5; pointer-events: none;"></svg>
+          <!-- Layer 6: Shoes SVG -->
+          <svg id="svgShoesLayer" viewBox="0 0 280 500" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 6; pointer-events: none;"></svg>
+          <!-- Layer 7: Jewelry & Accessories SVG -->
+          <svg id="svgAccLayer" viewBox="0 0 280 500" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 7; pointer-events: none;"></svg>
+        </div>
+      </div>
+      <!-- 3D Canvas (Hidden by default in 2D mode) -->
+      <canvas id="threeCanvas" style="width: 100%; height: 100%; outline: none; border-radius: var(--radius-xl); display: none;"></canvas>
+      
+      <!-- Parametric Sliders Floating Toolbar -->
+      <div id="parametricToolbar" style="position:absolute; bottom:16px; left:16px; z-index:5; background:rgba(13,13,30,0.88); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); border-radius:var(--radius-lg); padding:10px 14px; max-width:280px; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--clr-primary-light);">📐 Parametric Morphing</span>
+          <select id="presetBodyTypeSelect" style="background:rgba(255,255,255,0.08); color:var(--clr-text-1); border:1px solid var(--clr-border); border-radius:4px; font-size:0.7rem; padding:2px 6px; outline:none; cursor:pointer;">
+            <option value="Hourglass">Hourglass</option>
+            <option value="Pear">Pear</option>
+            <option value="Apple">Apple</option>
+            <option value="Rectangle">Rectangle</option>
+            <option value="Inverted Triangle">Inverted Tri.</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <span style="font-size:0.7rem; color:var(--clr-text-2); min-width:44px;">Height</span>
+            <input type="range" id="sliderHeight" min="0.85" max="1.2" step="0.01" value="1.0" style="flex:1; accent-color:var(--clr-primary); height:4px; cursor:pointer;">
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <span style="font-size:0.7rem; color:var(--clr-text-2); min-width:44px;">Chest</span>
+            <input type="range" id="sliderChest" min="0.7" max="1.4" step="0.01" value="1.0" style="flex:1; accent-color:var(--clr-primary); height:4px; cursor:pointer;">
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <span style="font-size:0.7rem; color:var(--clr-text-2); min-width:44px;">Waist</span>
+            <input type="range" id="sliderWaist" min="0.6" max="1.4" step="0.01" value="0.95" style="flex:1; accent-color:var(--clr-primary); height:4px; cursor:pointer;">
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <span style="font-size:0.7rem; color:var(--clr-text-2); min-width:44px;">Hips</span>
+            <input type="range" id="sliderHips" min="0.7" max="1.4" step="0.01" value="1.0" style="flex:1; accent-color:var(--clr-primary); height:4px; cursor:pointer;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Outfit Labels -->
+    <div class="outfit-layers" id="outfitLayers">
+      <div class="outfit-label top" id="label-top" style="display:none;">
+        <div class="outfit-dot" style="background:#9B5DE5;"></div>
+        <span id="label-top-text">—</span>
+      </div>
+      <div class="outfit-label bottom" id="label-bottom" style="display:none;">
+        <div class="outfit-dot" style="background:#F15BB5;"></div>
+        <span id="label-bottom-text">—</span>
+      </div>
+      <div class="outfit-label shoes" id="label-shoes" style="display:none;">
+        <div class="outfit-dot" style="background:#FEE440;"></div>
+        <span id="label-shoes-text">—</span>
+      </div>
+      <div class="outfit-label accessory-1" id="label-acc1" style="display:none;">
+        <div class="outfit-dot" style="background:#00BBF9;"></div>
+        <span id="label-acc1-text">—</span>
+      </div>
+      <div class="outfit-label accessory-2" id="label-acc2" style="display:none;">
+        <div class="outfit-dot" style="background:#00F5D4;"></div>
+        <span id="label-acc2-text">—</span>
+      </div>
+    </div>
+
+    <!-- Viewport controls -->
+    <div class="viewport-controls">
+      <div class="viewport-btn" id="rotateLeft" title="Rotate Left" data-tooltip="Rotate Left">↺</div>
+      <div class="viewport-btn" id="zoomIn" title="Zoom In" data-tooltip="Zoom In">+</div>
+      <div class="viewport-btn" id="resetView" title="Reset View" data-tooltip="Reset">⊙</div>
+      <div class="viewport-btn" id="zoomOut" title="Zoom Out" data-tooltip="Zoom Out">−</div>
+      <div class="viewport-btn" id="rotateRight" title="Rotate Right" data-tooltip="Rotate Right">↻</div>
+      <div class="viewport-btn" id="saveSnapshot" title="Save Snapshot" data-tooltip="Screenshot">📷</div>
+    </div>
+
+    <!-- Cart FAB -->
+    <div class="cart-fab" id="cartFab">
+      🛒 Shop Look
+      <div class="cart-count" id="cartCount">0</div>
+    </div>
+  </main>
+
+  <!-- Right Panel -->
+  <aside class="right-panel">
+    <div class="panel-tabs">
+      <div class="panel-tab active" data-panel="ai">✨ AI Stylist</div>
+      <div class="panel-tab" data-panel="makeup">💄 Makeup</div>
+      <div class="panel-tab" data-panel="trends">🔥 Trends</div>
+    </div>
+
+    <div class="panel-body" style="position:relative;">
+      <!-- AI Recommendations -->
+      <div class="panel-section active" id="panel-ai">
+        <div class="ai-loading" id="aiLoading">
+          <div class="ai-pulse-ring"></div>
+          <p class="heading-3 text-gradient">Ava is styling you...</p>
+          <p class="body-sm text-muted">Analyzing your preferences</p>
+        </div>
+        <div id="stylistNoteEl"></div>
+        <div id="aiOutfitRecs"></div>
+        <div id="aiFootwearRec"></div>
+        <div id="aiAccessoryRecs"></div>
+        <div id="styleTipEl"></div>
+      </div>
+
+      <!-- Makeup -->
+      <div class="panel-section" id="panel-makeup">
+        <div class="makeup-look-card" id="makeupCard">
+          <p class="text-muted body-sm">Getting your personalized makeup look...</p>
+        </div>
+      </div>
+
+      <!-- Trends -->
+      <div class="panel-section" id="panel-trends">
+        <div id="trendsContainer">
+          <p class="text-muted body-sm text-center">Loading fashion trends...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom action -->
+    <div style="padding:var(--space-4); border-top:1px solid var(--clr-border);">
+      <button class="btn btn-primary btn-full" id="finalShopBtn">
+        🛒 Shop Complete Look →
+      </button>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+// ── Load User Data ──────────────────────────────────────────
+const userData = JSON.parse(sessionStorage.getItem('avarionUser') || '{}');
+const gender = userData.gender || 'Female';
+const event = userData.event || 'Your Event';
+
+// ── Customize 3D Mannequin Proportions & Skin ────────────────
+const mannequinEl = document.getElementById('mannequinDisplay');
+document.getElementById('eventBadge').innerHTML = `🎯 ${event}`;
+
+// 2D Engine
+let currentViewMode = "2D";
+const skinToneColors = { "Fair": "#FDDBB4", "Light": "#EBBF8F", "Medium": "#C68642", "Tan": "#A0522D", "Dark": "#6B3A2A", "Deep": "#3B1F15" };
+const skinColorHex = skinToneColors[userData.skinTone || "Light"] || "#EBBF8F";
+function render2DBody(bt, sk) {
+  const s = document.getElementById('svgBodyLayer');
+  if (!s) return;
+  let cW = 44, wW = 32, hW = 46;
+  if (bt === 'Hourglass') { cW = 48; wW = 28; hW = 52; }
+  else if (bt === 'Pear') { cW = 40; wW = 32; hW = 56; }
+  else if (bt === 'Apple') { cW = 48; wW = 42; hW = 44; }
+  else if (bt === 'Rectangle') { cW = 40; wW = 38; hW = 40; }
+  else if (bt === 'Inverted Triangle') { cW = 54; wW = 36; hW = 38; }
+  const lC = 140 - cW, rC = 140 + cW;
+  const lW = 140 - wW, rW = 140 + wW;
+  const lH = 140 - hW, rH = 140 + hW;
+  s.innerHTML = '<ellipse cx="140" cy="485" rx="75" ry="10" fill="rgba(0,0,0,0.25)"/>' +
+    '<path d="M ' + (lH+10) + ' 265 Q ' + (lH+6) + ' 360 122 460 L 132 460 Q ' + (lH+22) + ' 360 ' + (lH+24) + ' 265 Z" fill="' + sk + '"/>' +
+    '<path d="M ' + (rH-24) + ' 265 Q ' + (rH-22) + ' 360 148 460 L 158 460 Q ' + (rH-6) + ' 360 ' + (rH-10) + ' 265 Z" fill="' + sk + '"/>' +
+    '<path d="M ' + lC + ' 145 Q ' + lW + ' 190 ' + lH + ' 255 C ' + (lH+8) + ' 275 ' + (rH-8) + ' 275 ' + rH + ' 255 Q ' + rW + ' 190 ' + rC + ' 145 Q 140 162 ' + lC + ' 145 Z" fill="' + sk + '"/>' +
+    '<path d="M 132 105 L 132 148 Q 140 152 148 148 L 148 105 Z" fill="' + sk + '"/>' +
+    '<path d="M ' + (lC-2) + ' 146 Q ' + (lC-12) + ' 220 98 285 Q 92 284 94 280 Q 106 215 ' + (lC+10) + ' 148 Z" fill="' + sk + '"/>' +
+    '<path d="M ' + (rC+2) + ' 146 Q ' + (rC+12) + ' 220 182 285 Q 188 284 186 280 Q 174 215 ' + (rC-10) + ' 148 Z" fill="' + sk + '"/>' +
+    '<ellipse cx="140" cy="75" rx="26" ry="33" fill="' + sk + '"/>' +
+    '<path d="M 112 75 C 112 40 168 40 168 75 C 168 95 166 120 160 126 C 156 122 152 75 140 75 C 128 75 124 122 120 126 C 114 120 112 95 112 75 Z" fill="#1E130F"/>';
+}
+
+function render2DMakeup() { const cv = document.getElementById("face2DCanvas"); if (!cv) return; const ctx = cv.getContext("2d"); ctx.clearRect(0,0,280,500); if (activeMakeup.blush && activeMakeup.blushIntensity > 0) { const bC = activeMakeup.blush, a = activeMakeup.blushIntensity; const gL = ctx.createRadialGradient(126,82,1,126,82,12); gL.addColorStop(0, getRgba(bC, a)); gL.addColorStop(1, getRgba(bC, 0)); ctx.fillStyle = gL; ctx.beginPath(); ctx.arc(126,82,12,0,Math.PI*2); ctx.fill(); const gR = ctx.createRadialGradient(154,82,1,154,82,12); gR.addColorStop(0, getRgba(bC, a)); gR.addColorStop(1, getRgba(bC, 0)); ctx.fillStyle = gR; ctx.beginPath(); ctx.arc(154,82,12,0,Math.PI*2); ctx.fill(); } ctx.strokeStyle = activeMakeup.eyeliner || "#1A1110"; ctx.lineWidth = 1.6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(125,71); ctx.quadraticCurveTo(129,67,134,71); if (activeMakeup.eyelinerStyle === "winged") ctx.lineTo(122,69); ctx.stroke(); ctx.beginPath(); ctx.moveTo(146,71); ctx.quadraticCurveTo(151,67,155,71); if (activeMakeup.eyelinerStyle === "winged") ctx.lineTo(158,69); ctx.stroke(); ctx.strokeStyle = "#221612"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(130,66,7,Math.PI*1.25,Math.PI*1.8); ctx.stroke(); ctx.beginPath(); ctx.arc(150,66,7,Math.PI*1.2,Math.PI*1.75); ctx.stroke(); ctx.fillStyle = activeMakeup.lipstick || "#E02148"; ctx.beginPath(); ctx.moveTo(134,91); ctx.quadraticCurveTo(137,88,140,90); ctx.quadraticCurveTo(143,88,146,91); ctx.quadraticCurveTo(140,96,134,91); ctx.fill(); ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.beginPath(); ctx.ellipse(140,92,2.5,1,0,0,Math.PI*2); ctx.fill(); }
+
+function render2DGarments() {
+  const sT = document.getElementById("svgTopLayer");
+  const sB = document.getElementById("svgBottomLayer");
+  const sD = document.getElementById("svgDressLayer");
+  const sS = document.getElementById("svgShoesLayer");
+  const sA = document.getElementById("svgAccLayer");
+  if (!sT) return;
+  sT.innerHTML = ""; sB.innerHTML = ""; sD.innerHTML = ""; sS.innerHTML = ""; sA.innerHTML = "";
+  const top = selectedItems.t, btm = selectedItems.b, drs = selectedItems.d, shs = selectedItems.s, acc = selectedItems.a;
+  if (drs) {
+    const d = catalog.dresses.find(function(i){ return i.id === drs.id; }) || { color: "#9B5DE5" };
+    sD.innerHTML = '<path d="M 125 146 Q 140 162 155 146 L 168 152 Q 170 215 152 245 L 180 435 Q 140 445 100 435 L 128 245 Q 110 215 112 152 Z" fill="' + d.color + '" filter="drop-shadow(0 6px 12px rgba(0,0,0,0.25))"/><path d="M 124 220 Q 140 226 156 220 Q 156 226 140 232 Q 124 226 124 220 Z" fill="rgba(0,0,0,0.18)"/>';
+  } else {
+    if (top) {
+      const t = catalog.tops.find(function(i){ return i.id === top.id; }) || { color: "#C9A96E" };
+      sT.innerHTML = '<path d="M 124 146 Q 140 160 156 146 L 176 154 L 162 230 Q 140 236 118 230 L 104 154 Z" fill="' + t.color + '" filter="drop-shadow(0 4px 8px rgba(0,0,0,0.2))"/><path d="M 132 148 L 140 180 L 148 148 Z" fill="rgba(0,0,0,0.12)"/>';
+    }
+    if (btm) {
+      const b = catalog.bottoms.find(function(i){ return i.id === btm.id; }) || { color: "#1A1A2E" };
+      sB.innerHTML = '<path d="M 120 228 Q 140 234 160 228 L 174 440 L 146 440 L 140 270 L 134 440 L 106 440 Z" fill="' + b.color + '" filter="drop-shadow(0 6px 12px rgba(0,0,0,0.25))"/>';
+    }
+  }
+  if (shs) {
+    const s = catalog.shoes.find(function(i){ return i.id === shs.id; }) || { color: "#C9A96E" };
+    sS.innerHTML = '<path d="M 120 455 L 133 455 L 135 470 L 115 470 Z" fill="' + s.color + '"/><path d="M 147 455 L 160 455 L 165 470 L 145 470 Z" fill="' + s.color + '"/>';
+  }
+  if (acc) {
+    if (acc.id === "a1") { sA.innerHTML = '<circle cx="113" cy="74" r="3.5" fill="#FFD700"/><circle cx="167" cy="74" r="3.5" fill="#FFD700"/>'; }
+    else if (acc.id === "a3") { sA.innerHTML = '<path d="M 132 126 Q 140 148 148 126" stroke="#FFD700" stroke-width="1.8" fill="none"/><path d="M 128 126 Q 140 158 152 126" stroke="#FFD700" stroke-width="1.2" fill="none"/>'; }
+    else if (acc.id === "a4") { sA.innerHTML = '<rect x="116" y="222" width="48" height="8" fill="#8B4513" rx="2"/><rect x="136" y="220" width="8" height="12" fill="#FFD700" rx="1"/>'; }
+    else if (acc.id === "a5") { sA.innerHTML = '<ellipse cx="140" cy="52" rx="36" ry="8" fill="#F5DEB3"/><path d="M 116 52 L 122 34 Q 140 30 158 34 L 164 52 Z" fill="#E6CE9F"/>'; }
+  }
+}
+
+function switchViewMode(m) { currentViewMode=m; const c2=document.getElementById("editorial2DContainer"), c3=document.getElementById("threeCanvas"), b2=document.getElementById("btnMode2D"), b3=document.getElementById("btnMode3D"); if(m==="2D"){ if(c2) c2.style.display="flex"; if(c3) c3.style.display="none"; if(b2){b2.style.background="#FFFFFF"; b2.style.color="#111111";} if(b3){b3.style.background="transparent"; b3.style.color="var(--clr-text-2)";} render2DBody(userData.bodyType||"Hourglass", skinColorHex); render2DMakeup(); render2DGarments(); } else { if(c2) c2.style.display="none"; if(c3) c3.style.display="block"; if(b3){b3.style.background="#FFFFFF"; b3.style.color="#111111";} if(b2){b2.style.background="transparent"; b2.style.color="var(--clr-text-2)";} } }
+
+// ── Three.js Scene Setup ──────────────────────────────────────
+let scene, camera, renderer, mannequinGroup;
+let bodyMaterial, topMaterial, bottomMaterial, dressMaterial, shoesMaterial;
+let shoeMeshL, shoeMeshR;
+let chestMeshRef, waistMeshRef, hipsMeshRef, charGroupRef;
+let accEarringsMesh, accNecklaceMesh, accBeltMesh, accHatMesh;
+let facePlaneMesh;
+let makeupCanvas, makeupCtx, faceTextureInstance;
+let activeMakeup = {
+  lipstick: "#E02148",
+  blush: "#FF7A85",
+  eyeliner: "#1A1110",
+  blushIntensity: 0.35,
+  eyelinerStyle: "winged"
+};
+
+
+function init3DScene() {
+  const container = document.getElementById('mannequinDisplay');
+  const width = container.clientWidth || 220;
+  const height = container.clientHeight || 420;
+
+  // Create canvas inside container
+  container.innerHTML = `<canvas id="threeCanvas" style="width: 100%; height: 100%; outline: none; cursor: grab;"></canvas>`;
+  const canvas = document.getElementById('threeCanvas');
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+
+  // Scene
+  scene = new THREE.Scene();
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+  camera.position.set(0, 2, 8.5);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+  scene.add(ambientLight);
+
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.7);
+  keyLight.position.set(4, 8, 5);
+  scene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+  fillLight.position.set(-4, 4, 3);
+  scene.add(fillLight);
+
+  const rimLight = new THREE.PointLight(0xffffff, 0.65, 10);
+  rimLight.position.set(0, 4, -4);
+  scene.add(rimLight);
+
+  // Materials
+  const skinToneColors = {
+    'Fair': '#FDDBB4',
+    'Light': '#EBBF8F',
+    'Medium': '#C68642',
+    'Tan': '#A0522D',
+    'Dark': '#6B3A2A',
+    'Deep': '#3B1F15'
+  };
+  const skinTone = userData.skinTone || 'Light';
+  const skinColorHex = skinToneColors[skinTone] || '#EBBF8F';
+  const skinColor = new THREE.Color(skinColorHex);
+
+  bodyMaterial = new THREE.MeshStandardMaterial({
+    color: skinColor,
+    roughness: 0.35,
+    metalness: 0.05,
+    flatShading: false
+  });
+
+  // Clothing Materials (glossy/satin finishes)
+  topMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1, visible: false });
+  bottomMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.05, visible: false });
+  dressMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1, visible: false });
+  shoesMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.3, metalness: 0.1, visible: false });
+
+  // Mannequin Group
+  mannequinGroup = new THREE.Group();
+  scene.add(mannequinGroup);
+
+  // Create Mannequin parts
+  build3DMannequin(skinColorHex);
+
+  // Mouse / Touch Controls
+  setupCanvasInteraction(canvas);
+
+  // ── Parametric Slider Event Listeners ───────────────────────
+  const sliderH = document.getElementById("sliderHeight");
+  const sliderC = document.getElementById("sliderChest");
+  const sliderW = document.getElementById("sliderWaist");
+  const sliderHp = document.getElementById("sliderHips");
+  const presetSelect = document.getElementById("presetBodyTypeSelect");
+
+  if (presetSelect) {
+    presetSelect.value = userData.bodyType || "Hourglass";
+    presetSelect.addEventListener("change", (e) => {
+      const val = e.target.value;
+      userData.bodyType = val;
+      const presets = {
+        "Hourglass": { chest: 1.1, waist: 0.75, hips: 1.15 },
+        "Pear": { chest: 0.85, waist: 0.8, hips: 1.25 },
+        "Apple": { chest: 1.05, waist: 1.25, hips: 1.0 },
+        "Rectangle": { chest: 0.95, waist: 0.95, hips: 0.95 },
+        "Inverted Triangle": { chest: 1.25, waist: 0.95, hips: 0.85 }
+      };
+      const p = presets[val] || presets["Hourglass"];
+      if (sliderC) sliderC.value = p.chest;
+      if (sliderW) sliderW.value = p.waist;
+      if (sliderHp) sliderHp.value = p.hips;
+      if (chestMeshRef) chestMeshRef.scale.set(p.chest, 0.65, 0.85 * p.chest);
+      if (waistMeshRef) waistMeshRef.scale.set(p.waist, 0.65, 0.85 * p.waist);
+      if (hipsMeshRef) hipsMeshRef.scale.set(p.hips, 0.65, 0.85 * p.hips);
+      if (currentViewMode === "2D") { render2DBody(val, skinColorHex); render2DGarments(); }
+    });
+  }
+
+  sliderH?.addEventListener("input", (e) => {
+    const factor = parseFloat(e.target.value) || 1.0;
+    if (charGroupRef) {
+      charGroupRef.scale.y = factor;
+      charGroupRef.position.y = -1.8 * factor;
+    }
+  });
+  sliderC?.addEventListener("input", (e) => {
+    const factor = parseFloat(e.target.value) || 1.0;
+    if (chestMeshRef) chestMeshRef.scale.set(factor, 0.65, 0.85 * factor);
+  });
+  sliderW?.addEventListener("input", (e) => {
+    const factor = parseFloat(e.target.value) || 0.95;
+    if (waistMeshRef) waistMeshRef.scale.set(factor, 0.65, 0.85 * factor);
+  });
+  sliderHp?.addEventListener("input", (e) => {
+    const factor = parseFloat(e.target.value) || 1.0;
+    if (hipsMeshRef) hipsMeshRef.scale.set(factor, 0.65, 0.85 * factor);
+  });
+
+  // Animation Loop
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // Resize listener
+  window.addEventListener('resize', () => {
+    const w = container.clientWidth || 220;
+    const h = container.clientHeight || 420;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+}
+
+function build3DMannequin(skinColorHex) {
+  const hVal = userData.height || 165;
+  const wVal = userData.weight || 60;
+  const heightFactor = hVal / 165; // base 165
+  const weightFactor = wVal / 60;   // base 60
+
+  // Torso body proportions based on bodyType
+  const bodyType = userData.bodyType || 'Hourglass';
+  let chestScale = 1.0;
+  let waistScale = 0.95;
+  let hipScale = 1.0;
+
+  if (bodyType === 'Hourglass') {
+    chestScale = 1.1;
+    waistScale = 0.75;
+    hipScale = 1.15;
+  } else if (bodyType === 'Pear') {
+    chestScale = 0.85;
+    waistScale = 0.8;
+    hipScale = 1.25;
+  } else if (bodyType === 'Apple') {
+    chestScale = 1.05;
+    waistScale = 1.25;
+    hipScale = 1.0;
+  } else if (bodyType === 'Rectangle') {
+    chestScale = 0.95;
+    waistScale = 0.95;
+    hipScale = 0.95;
+  } else if (bodyType === 'Inverted Triangle' || bodyType === 'InvertedTriangle') {
+    chestScale = 1.25;
+    waistScale = 0.95;
+    hipScale = 0.85;
+  }
+
+  // We group everything inside a main character group
+  const charGroup = new THREE.Group();
+  charGroupRef = charGroup;
+  mannequinGroup.add(charGroup);
+
+  // 1. Head (y = 3.3)
+  const headGeom = new THREE.SphereGeometry(0.38, 32, 32);
+  const headMesh = new THREE.Mesh(headGeom, bodyMaterial);
+  headMesh.position.set(0, 3.3 * heightFactor, 0);
+  charGroup.add(headMesh);
+
+  // Add 3D Hair Mesh
+  const hairGroup = new THREE.Group();
+  hairGroup.name = "hair";
+  headMesh.add(hairGroup);
+
+  const hairMaterial = new THREE.MeshStandardMaterial({
+    color: 0x312117,
+    roughness: 0.4,
+    metalness: 0.1
+  });
+
+  const genderVal = userData.gender || 'Female';
+  if (genderVal === 'Male') {
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.395, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2.3), hairMaterial);
+    cap.position.set(0, 0.05, 0);
+    cap.rotation.x = -0.15;
+    hairGroup.add(cap);
+    
+    const quiff = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.14), hairMaterial);
+    quiff.position.set(0, 0.34, 0.18);
+    quiff.rotation.x = 0.25;
+    hairGroup.add(quiff);
+  } else {
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.395, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2.1), hairMaterial);
+    cap.position.set(0, 0.05, 0);
+    cap.rotation.x = -0.2;
+    hairGroup.add(cap);
+    
+    const bun = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), hairMaterial);
+    bun.position.set(0, 0.38, -0.15);
+    hairGroup.add(bun);
+    
+    const lockL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.9, 12), hairMaterial);
+    lockL.position.set(-0.35, -0.3, 0.1);
+    lockL.rotation.z = -0.1;
+    hairGroup.add(lockL);
+    
+    const lockR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.9, 12), hairMaterial);
+    lockR.position.set(0.35, -0.3, 0.1);
+    lockR.rotation.z = 0.1;
+    hairGroup.add(lockR);
+  }
+
+  if (userData.photoDataUrl) {
+    createCircularFaceTexture(userData.photoDataUrl, skinColorHex, (texture) => {
+      const faceGeom = new THREE.PlaneGeometry(0.55, 0.55);
+      const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+      facePlaneMesh = new THREE.Mesh(faceGeom, faceMat);
+      facePlaneMesh.position.set(0, 0, 0.381);
+      headMesh.add(facePlaneMesh);
+    });
+  } else {
+    createFallbackFaceTexture(gender, skinColorHex, (texture) => {
+      const faceGeom = new THREE.PlaneGeometry(0.55, 0.55);
+      const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+      facePlaneMesh = new THREE.Mesh(faceGeom, faceMat);
+      facePlaneMesh.position.set(0, 0, 0.381);
+      headMesh.add(facePlaneMesh);
+    });
+  }
+
+  // 2. Neck
+  const neckGeom = new THREE.CylinderGeometry(0.12, 0.14, 0.25 * heightFactor, 16);
+  const neckMesh = new THREE.Mesh(neckGeom, bodyMaterial);
+  neckMesh.position.set(0, 3.0 * heightFactor, 0);
+  charGroup.add(neckMesh);
+
+  // 3. Torso (Three spheres for Chest, Waist, Hips)
+  const chestGeom = new THREE.SphereGeometry(0.44 * weightFactor * chestScale, 32, 16);
+  const chestMesh = new THREE.Mesh(chestGeom, bodyMaterial);
+  chestMesh.position.set(0, 2.65 * heightFactor, 0);
+  chestMesh.scale.set(1.0, 0.65, 0.85);
+  chestMeshRef = chestMesh;
+  charGroup.add(chestMesh);
+
+  const waistGeom = new THREE.SphereGeometry(0.41 * weightFactor * waistScale, 32, 16);
+  const waistMesh = new THREE.Mesh(waistGeom, bodyMaterial);
+  waistMesh.position.set(0, 2.15 * heightFactor, 0);
+  waistMesh.scale.set(1.0, 0.65, 0.85);
+  waistMeshRef = waistMesh;
+  charGroup.add(waistMesh);
+
+  const hipsGeom = new THREE.SphereGeometry(0.47 * weightFactor * hipScale, 32, 16);
+  const hipsMesh = new THREE.Mesh(hipsGeom, bodyMaterial);
+  hipsMesh.position.set(0, 1.65 * heightFactor, 0);
+  hipsMesh.scale.set(1.0, 0.65, 0.85);
+  hipsMeshRef = hipsMesh;
+  charGroup.add(hipsMesh);
+
+  // 4. Arms (articulated groups)
+  // Left Shoulder
+  const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), bodyMaterial);
+  shoulderL.position.set(-0.52 * weightFactor * chestScale - 0.05, 2.65 * heightFactor, 0);
+  charGroup.add(shoulderL);
+
+  const armLGroup = new THREE.Group();
+  armLGroup.position.copy(shoulderL.position);
+  charGroup.add(armLGroup);
+
+  // Upper Arm Left
+  const upperArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * weightFactor, 0.07 * weightFactor, 0.6 * heightFactor, 16), bodyMaterial);
+  upperArmL.position.set(0, -0.3 * heightFactor, 0);
+  armLGroup.add(upperArmL);
+
+  // Left Elbow
+  const elbowLGroup = new THREE.Group();
+  elbowLGroup.position.set(0, -0.6 * heightFactor, 0);
+  armLGroup.add(elbowLGroup);
+
+  const jointElbowL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), bodyMaterial);
+  elbowLGroup.add(jointElbowL);
+
+  // Lower Arm Left
+  const lowerArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * weightFactor, 0.06 * weightFactor, 0.55 * heightFactor, 16), bodyMaterial);
+  lowerArmL.position.set(0, -0.275 * heightFactor, 0);
+  elbowLGroup.add(lowerArmL);
+
+  // Left Hand
+  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), bodyMaterial);
+  handL.position.set(0, -0.55 * heightFactor, 0);
+  elbowLGroup.add(handL);
+
+  // Pose Left Arm slightly outward
+  armLGroup.rotation.z = 0.22;
+  elbowLGroup.rotation.z = 0.15;
+
+  // Right Shoulder
+  const shoulderR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), bodyMaterial);
+  shoulderR.position.set(0.52 * weightFactor * chestScale + 0.05, 2.65 * heightFactor, 0);
+  charGroup.add(shoulderR);
+
+  const armRGroup = new THREE.Group();
+  armRGroup.position.copy(shoulderR.position);
+  charGroup.add(armRGroup);
+
+  // Upper Arm Right
+  const upperArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * weightFactor, 0.07 * weightFactor, 0.6 * heightFactor, 16), bodyMaterial);
+  upperArmR.position.set(0, -0.3 * heightFactor, 0);
+  armRGroup.add(upperArmR);
+
+  // Right Elbow
+  const elbowRGroup = new THREE.Group();
+  elbowRGroup.position.set(0, -0.6 * heightFactor, 0);
+  armRGroup.add(elbowRGroup);
+
+  const jointElbowR = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), bodyMaterial);
+  elbowRGroup.add(jointElbowR);
+
+  // Lower Arm Right
+  const lowerArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * weightFactor, 0.06 * weightFactor, 0.55 * heightFactor, 16), bodyMaterial);
+  lowerArmR.position.set(0, -0.275 * heightFactor, 0);
+  elbowRGroup.add(lowerArmR);
+
+  // Right Hand
+  const handR = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), bodyMaterial);
+  handR.position.set(0, -0.55 * heightFactor, 0);
+  elbowRGroup.add(handR);
+
+  // Pose Right Arm (fashion pose, bent at elbow)
+  armRGroup.rotation.z = -0.35;
+  armRGroup.rotation.x = 0.2;
+  elbowRGroup.rotation.z = -0.45;
+
+  // 5. Legs
+  // Left Hip Joint
+  const hipL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), bodyMaterial);
+  hipL.position.set(-0.24 * weightFactor * hipScale, 1.5 * heightFactor, 0);
+  charGroup.add(hipL);
+
+  const legLGroup = new THREE.Group();
+  legLGroup.position.copy(hipL.position);
+  charGroup.add(legLGroup);
+
+  // Upper Leg Left
+  const upperLegL = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * weightFactor, 0.11 * weightFactor, 0.75 * heightFactor, 16), bodyMaterial);
+  upperLegL.position.set(0, -0.375 * heightFactor, 0);
+  legLGroup.add(upperLegL);
+
+  // Left Knee
+  const kneeLGroup = new THREE.Group();
+  kneeLGroup.position.set(0, -0.75 * heightFactor, 0);
+  legLGroup.add(kneeLGroup);
+
+  const jointKneeL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), bodyMaterial);
+  kneeLGroup.add(jointKneeL);
+
+  // Lower Leg Left
+  const lowerLegL = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * weightFactor, 0.09 * weightFactor, 0.7 * heightFactor, 16), bodyMaterial);
+  lowerLegL.position.set(0, -0.35 * heightFactor, 0);
+  kneeLGroup.add(lowerLegL);
+
+  // Left Foot
+  const footL = new THREE.Mesh(new THREE.BoxGeometry(0.15 * weightFactor, 0.12 * heightFactor, 0.3 * heightFactor), bodyMaterial);
+  footL.position.set(0, -0.7 * heightFactor, 0.06 * heightFactor);
+  kneeLGroup.add(footL);
+
+  // Right Hip Joint
+  const hipR = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), bodyMaterial);
+  hipR.position.set(0.24 * weightFactor * hipScale, 1.5 * heightFactor, 0);
+  charGroup.add(hipR);
+
+  const legRGroup = new THREE.Group();
+  legRGroup.position.copy(hipR.position);
+  charGroup.add(legRGroup);
+
+  // Upper Leg Right
+  const upperLegR = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * weightFactor, 0.11 * weightFactor, 0.75 * heightFactor, 16), bodyMaterial);
+  upperLegR.position.set(0, -0.375 * heightFactor, 0);
+  legRGroup.add(upperLegR);
+
+  // Right Knee
+  const kneeRGroup = new THREE.Group();
+  kneeRGroup.position.set(0, -0.75 * heightFactor, 0);
+  legRGroup.add(kneeRGroup);
+
+  const jointKneeR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), bodyMaterial);
+  kneeRGroup.add(jointKneeR);
+
+  // Lower Leg Right
+  const lowerLegR = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * weightFactor, 0.09 * weightFactor, 0.7 * heightFactor, 16), bodyMaterial);
+  lowerLegR.position.set(0, -0.35 * heightFactor, 0);
+  kneeRGroup.add(lowerLegR);
+
+  // Right Foot
+  const footR = new THREE.Mesh(new THREE.BoxGeometry(0.15 * weightFactor, 0.12 * heightFactor, 0.3 * heightFactor), bodyMaterial);
+  footR.position.set(0, -0.7 * heightFactor, 0.06 * heightFactor);
+  kneeRGroup.add(footR);
+
+  // Pose Legs slightly
+  legLGroup.rotation.y = 0.05;
+  legRGroup.rotation.y = -0.05;
+
+  // 6. Clothing Meshes (fitted over limbs & torso)
+  // ── Top Clothing Meshes ──
+  const topGroup = new THREE.Group();
+  charGroup.add(topGroup);
+
+  // Torso Shirt
+  const shirtTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.46 * weightFactor * chestScale, 0.43 * weightFactor * waistScale, 0.95 * heightFactor, 32), topMaterial);
+  shirtTorso.position.set(0, 2.38 * heightFactor, 0);
+  shirtTorso.scale.set(1.025, 1.0, 1.025);
+  topGroup.add(shirtTorso);
+
+  // Sleeve Left
+  const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.092 * weightFactor, 0.082 * weightFactor, 0.35 * heightFactor, 16), topMaterial);
+  sleeveL.position.set(0, -0.175 * heightFactor, 0);
+  armLGroup.add(sleeveL);
+
+  // Sleeve Right
+  const sleeveR = new THREE.Mesh(new THREE.CylinderGeometry(0.092 * weightFactor, 0.082 * weightFactor, 0.35 * heightFactor, 16), topMaterial);
+  sleeveR.position.set(0, -0.175 * heightFactor, 0);
+  armRGroup.add(sleeveR);
+
+  // ── Bottom Clothing Meshes ──
+  const bottomGroup = new THREE.Group();
+  charGroup.add(bottomGroup);
+
+  // Shorts/Waist covering part of pants
+  const pantsWaist = new THREE.Mesh(new THREE.CylinderGeometry(0.48 * weightFactor * waistScale, 0.49 * weightFactor * hipScale, 0.55 * heightFactor, 32), bottomMaterial);
+  pantsWaist.position.set(0, 1.7 * heightFactor, 0);
+  pantsWaist.scale.set(1.02, 1.0, 1.02);
+  bottomGroup.add(pantsWaist);
+
+  // Trouser Leg Left
+  const pantL1 = new THREE.Mesh(new THREE.CylinderGeometry(0.145 * weightFactor, 0.125 * weightFactor, 0.77 * heightFactor, 16), bottomMaterial);
+  pantL1.position.set(0, -0.375 * heightFactor, 0);
+  legLGroup.add(pantL1);
+
+  const pantL2 = new THREE.Mesh(new THREE.CylinderGeometry(0.125 * weightFactor, 0.105 * weightFactor, 0.72 * heightFactor, 16), bottomMaterial);
+  pantL2.position.set(0, -0.35 * heightFactor, 0);
+  kneeLGroup.add(pantL2);
+
+  // Trouser Leg Right
+  const pantR1 = new THREE.Mesh(new THREE.CylinderGeometry(0.145 * weightFactor, 0.125 * weightFactor, 0.77 * heightFactor, 16), bottomMaterial);
+  pantR1.position.set(0, -0.375 * heightFactor, 0);
+  legRGroup.add(pantR1);
+
+  const pantR2 = new THREE.Mesh(new THREE.CylinderGeometry(0.125 * weightFactor, 0.105 * weightFactor, 0.72 * heightFactor, 16), bottomMaterial);
+  pantR2.position.set(0, -0.35 * heightFactor, 0);
+  kneeRGroup.add(pantR2);
+
+  // ── Dress Clothing Mesh ──
+  const dressGroup = new THREE.Group();
+  charGroup.add(dressGroup);
+
+  // Elegant dress body from chest down to knees
+  const dressBody = new THREE.Mesh(new THREE.CylinderGeometry(0.46 * weightFactor * chestScale, 0.62 * weightFactor * hipScale, 1.65 * heightFactor, 32), dressMaterial);
+  dressBody.position.set(0, 1.95 * heightFactor, 0);
+  dressBody.scale.set(1.025, 1.0, 1.025);
+  dressGroup.add(dressBody);
+
+  // ── Shoes Meshes ──
+  shoeMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.17 * weightFactor, 0.14 * heightFactor, 0.32 * heightFactor), shoesMaterial);
+  shoeMeshL.position.copy(footL.position);
+  shoeMeshL.position.y += 0.005;
+  kneeLGroup.add(shoeMeshL);
+
+  shoeMeshR = new THREE.Mesh(new THREE.BoxGeometry(0.17 * weightFactor, 0.14 * heightFactor, 0.32 * heightFactor), shoesMaterial);
+  shoeMeshR.position.copy(footR.position);
+  shoeMeshR.position.y += 0.005;
+  kneeRGroup.add(shoeMeshR);
+
+  // ── Bone-Attached 3D Accessories (Necklace, Earrings, Belt, Hat) ──
+  const goldAccMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.85, roughness: 0.2, visible: false });
+  const brownAccMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.5, visible: false });
+  const wheatAccMat = new THREE.MeshStandardMaterial({ color: 0xF5DEB3, roughness: 0.6, visible: false });
+
+  // 1. Earrings (Attached to headMesh left & right)
+  const earGroup = new THREE.Group();
+  const earRingGeom = new THREE.TorusGeometry(0.04, 0.012, 12, 24);
+  const earL = new THREE.Mesh(earRingGeom, goldAccMat);
+  earL.position.set(-0.39, -0.05, 0);
+  earL.rotation.y = Math.PI / 2;
+  earGroup.add(earL);
+  const earR = new THREE.Mesh(earRingGeom, goldAccMat);
+  earR.position.set(0.39, -0.05, 0);
+  earR.rotation.y = Math.PI / 2;
+  earGroup.add(earR);
+  headMesh.add(earGroup);
+  accEarringsMesh = earGroup;
+
+  // 2. Hat (Attached to headMesh top)
+  const hatGroup = new THREE.Group();
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.52, 0.04, 24), wheatAccMat);
+  brim.position.set(0, 0.38, 0);
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.22, 24), wheatAccMat);
+  crown.position.set(0, 0.49, 0);
+  hatGroup.add(brim);
+  hatGroup.add(crown);
+  headMesh.add(hatGroup);
+  accHatMesh = hatGroup;
+
+  // 3. Layered Necklace (Attached to neckMesh)
+  const neckTorusGeom = new THREE.TorusGeometry(0.18, 0.018, 12, 32);
+  const necklace = new THREE.Mesh(neckTorusGeom, goldAccMat);
+  necklace.rotation.x = Math.PI / 2;
+  necklace.position.set(0, -0.08, 0.05);
+  neckMesh.add(necklace);
+  accNecklaceMesh = necklace;
+
+  // 4. Wide Belt (Attached to waistMesh)
+  const beltGeom = new THREE.CylinderGeometry(0.43, 0.45, 0.12, 32);
+  const belt = new THREE.Mesh(beltGeom, brownAccMat);
+  belt.scale.set(1.03, 1.0, 0.88);
+  waistMesh.add(belt);
+  accBeltMesh = belt;
+
+  // Center character group around world coordinates
+  charGroup.position.set(0, -1.8 * heightFactor, 0);
+}
+
+function setupCanvasInteraction(canvas) {
+  let isDragging = false;
+  let previousMousePosition = { x: 0, y: 0 };
+
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true;
+    previousMousePosition = { x: e.offsetX, y: e.offsetY };
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const deltaMove = {
+      x: e.offsetX - previousMousePosition.x,
+      y: e.offsetY - previousMousePosition.y
+    };
+
+    mannequinGroup.rotation.y += deltaMove.x * 0.008;
+    mannequinGroup.rotation.x = Math.max(-0.5, Math.min(0.5, mannequinGroup.rotation.x + deltaMove.y * 0.008));
+
+    previousMousePosition = { x: e.offsetX, y: e.offsetY };
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  // Touch support
+  canvas.addEventListener('touchstart', e => {
+    isDragging = true;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    previousMousePosition = {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top
+    };
+  });
+
+  canvas.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const currentX = touch.clientX - rect.left;
+    const currentY = touch.clientY - rect.top;
+
+    const deltaMove = {
+      x: currentX - previousMousePosition.x,
+      y: currentY - previousMousePosition.y
+    };
+
+    mannequinGroup.rotation.y += deltaMove.x * 0.008;
+    mannequinGroup.rotation.x = Math.max(-0.5, Math.min(0.5, mannequinGroup.rotation.x + deltaMove.y * 0.008));
+
+    previousMousePosition = { x: currentX, y: currentY };
+  });
+
+  window.addEventListener('touchend', () => {
+    isDragging = false;
+  });
+}
+
+function createCircularFaceTexture(dataUrl, skinColorHex, callback) {
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Fill with skin color first
+    ctx.fillStyle = skinColorHex;
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Draw circular clip
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(128, 128, 100, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(img, 28, 28, 200, 200);
+    ctx.restore();
+
+    // Soft edge feathering
+    const grad = ctx.createRadialGradient(128, 128, 80, 128, 128, 110);
+    const r = parseInt(skinColorHex.slice(1, 3), 16);
+    const g = parseInt(skinColorHex.slice(3, 5), 16);
+    const b = parseInt(skinColorHex.slice(5, 7), 16);
+    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 1)`);
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(128, 128, 120, 0, Math.PI * 2);
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    callback(texture);
+  };
+  img.src = dataUrl;
+}
+
+function getRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16) || 0;
+  const g = parseInt(hex.slice(3, 5), 16) || 0;
+  const b = parseInt(hex.slice(5, 7), 16) || 0;
+  return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
+}
+
+function redrawMakeupTexture(skinColorHex) {
+  if (!makeupCanvas || !makeupCtx) return;
+  const ctx = makeupCtx;
+  ctx.clearRect(0, 0, 256, 256);
+  ctx.fillStyle = skinColorHex;
+  ctx.fillRect(0, 0, 256, 256);
+
+  // 1. Blush (Dual soft radial gradients)
+  if (activeMakeup.blush && activeMakeup.blushIntensity > 0) {
+    const bColor = activeMakeup.blush;
+    const alpha = activeMakeup.blushIntensity;
+    const gLeft = ctx.createRadialGradient(78, 142, 4, 78, 142, 28);
+    gLeft.addColorStop(0, getRgba(bColor, alpha));
+    gLeft.addColorStop(1, getRgba(bColor, 0));
+    ctx.fillStyle = gLeft;
+    ctx.beginPath();
+    ctx.arc(78, 142, 28, 0, Math.PI * 2);
+    ctx.fill();
+
+    const gRight = ctx.createRadialGradient(178, 142, 4, 178, 142, 28);
+    gRight.addColorStop(0, getRgba(bColor, alpha));
+    gRight.addColorStop(1, getRgba(bColor, 0));
+    ctx.fillStyle = gRight;
+    ctx.beginPath();
+    ctx.arc(178, 142, 28, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 2. Eyes & Eyelashes
+  ctx.strokeStyle = "#2d1e18";
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(88, 120, 15, 0.1 * Math.PI, 0.9 * Math.PI, false);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(168, 120, 15, 0.1 * Math.PI, 0.9 * Math.PI, false);
+  ctx.stroke();
+
+  // 3. Eyeliner & Wing Detail
+  ctx.strokeStyle = activeMakeup.eyeliner || "#1A1110";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(74, 124);
+  ctx.quadraticCurveTo(88, 116, 102, 124);
+  if (activeMakeup.eyelinerStyle === "winged" || activeMakeup.eyelinerStyle === "smoky") {
+    ctx.lineTo(67, 118);
+  }
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(154, 124);
+  ctx.quadraticCurveTo(168, 116, 182, 124);
+  if (activeMakeup.eyelinerStyle === "winged" || activeMakeup.eyelinerStyle === "smoky") {
+    ctx.lineTo(189, 118);
+  }
+  ctx.stroke();
+
+  if (activeMakeup.eyelinerStyle === "smoky") {
+    ctx.fillStyle = getRgba(activeMakeup.eyeliner, 0.25);
+    ctx.beginPath();
+    ctx.arc(88, 119, 11, Math.PI, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(168, 119, 11, Math.PI, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. Eyebrows
+  ctx.strokeStyle = "#2a1a12";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(88, 105, 18, Math.PI * 1.25, Math.PI * 1.75);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(168, 105, 18, Math.PI * 1.25, Math.PI * 1.75);
+  ctx.stroke();
+
+  // 5. Lipstick with cupid bow and gloss highlight
+  const lipColor = activeMakeup.lipstick || "#E02148";
+  ctx.fillStyle = lipColor;
+  ctx.beginPath();
+  ctx.moveTo(116, 158);
+  ctx.quadraticCurveTo(122, 153, 128, 156);
+  ctx.quadraticCurveTo(134, 153, 140, 158);
+  ctx.quadraticCurveTo(128, 161, 116, 158);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(116, 158);
+  ctx.quadraticCurveTo(128, 169, 140, 158);
+  ctx.quadraticCurveTo(128, 161, 116, 158);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+  ctx.beginPath();
+  ctx.ellipse(128, 161, 4, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (faceTextureInstance) {
+    faceTextureInstance.needsUpdate = true;
+  }
+}
+
+function createFallbackFaceTexture(gender, skinColorHex, callback) {
+  makeupCanvas = document.createElement("canvas");
+  makeupCanvas.width = 256;
+  makeupCanvas.height = 256;
+  makeupCtx = makeupCanvas.getContext("2d");
+
+  faceTextureInstance = new THREE.CanvasTexture(makeupCanvas);
+  faceTextureInstance.minFilter = THREE.LinearFilter;
+  faceTextureInstance.magFilter = THREE.LinearFilter;
+
+  redrawMakeupTexture(skinColorHex); if (currentViewMode === "2D") render2DMakeup();
+  callback(faceTextureInstance);
+}
+
+function applyMakeupLook(presetKey, skinColorHex) {
+  const presets = {
+    "m1": { lipstick: "#D47368", blush: "#E59572", eyeliner: "#3A2010", blushIntensity: 0.25, eyelinerStyle: "natural" },
+    "m2": { lipstick: "#B20D30", blush: "#E05370", eyeliner: "#0A0505", blushIntensity: 0.45, eyelinerStyle: "winged" },
+    "m3": { lipstick: "#8B4F58", blush: "#9C6F6B", eyeliner: "#111111", blushIntensity: 0.35, eyelinerStyle: "smoky" },
+    "m4": { lipstick: "#E09886", blush: "#F4BAA1", eyeliner: "#4B3621", blushIntensity: 0.18, eyelinerStyle: "natural" },
+    "m5": { lipstick: "#D81159", blush: "#FF579F", eyeliner: "#240046", blushIntensity: 0.50, eyelinerStyle: "winged" },
+    "m6": { lipstick: "#F26CA7", blush: "#FF85A1", eyeliner: "#1F2937", blushIntensity: 0.30, eyelinerStyle: "natural" }
+  };
+  const selected = presets[presetKey] || presets["m1"];
+  Object.assign(activeMakeup, selected);
+  const lipPicker = document.getElementById("lipstickColorPicker");
+  const blushPicker = document.getElementById("blushColorPicker");
+  const eyePicker = document.getElementById("eyelinerColorPicker");
+  if (lipPicker) lipPicker.value = activeMakeup.lipstick;
+  if (blushPicker) blushPicker.value = activeMakeup.blush;
+  if (eyePicker) eyePicker.value = activeMakeup.eyeliner;
+  redrawMakeupTexture(skinColorHex);
+}
+function update3DAvatarAccessories(id) {
+  if (!accEarringsMesh || !accNecklaceMesh || !accBeltMesh || !accHatMesh) return;
+  // Reset accessory visibility
+  accEarringsMesh.children.forEach(m => { m.material.visible = false; });
+  accHatMesh.children.forEach(m => { m.material.visible = false; });
+  accNecklaceMesh.material.visible = false;
+  accBeltMesh.material.visible = false;
+
+  if (id === "a1") { // Ear cuffs / Earrings
+    accEarringsMesh.children.forEach(m => { m.material.visible = true; });
+  } else if (id === "a3") { // Layered necklace
+    accNecklaceMesh.material.visible = true;
+  } else if (id === "a4") { // Wide belt
+    accBeltMesh.material.visible = true;
+  } else if (id === "a5") { // Bucket Hat
+    accHatMesh.children.forEach(m => { m.material.visible = true; });
+  }
+}
+
+function update3DAvatarClothes(id) {
+  const prefix = id[0];
+  const catMap = {
+    't': 'tops',
+    'b': 'bottoms',
+    'd': 'dresses',
+    's': 'shoes'
+  };
+  const category = catMap[prefix];
+  if (!category) return;
+
+  const item = catalog[category].find(i => i.id === id);
+  if (!item) return;
+
+  const colorHex = item.color || '#FFFFFF';
+
+  if (prefix === 't') {
+    topMaterial.color.set(colorHex);
+    topMaterial.visible = true;
+    dressMaterial.visible = false;
+  } else if (prefix === 'b') {
+    bottomMaterial.color.set(colorHex);
+    bottomMaterial.visible = true;
+    dressMaterial.visible = false;
+  } else if (prefix === 'd') {
+    dressMaterial.color.set(colorHex);
+    dressMaterial.visible = true;
+    topMaterial.visible = false;
+    bottomMaterial.visible = false;
+  } else if (prefix === 's') {
+    shoesMaterial.color.set(colorHex);
+    shoesMaterial.visible = true;
+  }
+}
+
+// ── Wardrobe Catalog ────────────────────────────────────────
+const catalog = {
+  tops: [
+    { id:'t1', name:'Satin Blouse', emoji:'👚', color:'#C9A96E', colorName:'Champagne' },
+    { id:'t2', name:'Crop Top', emoji:'🎽', color:'#FF6B9D', colorName:'Pink' },
+    { id:'t3', name:'Linen Shirt', emoji:'👔', color:'#B8D4E3', colorName:'Sky Blue' },
+    { id:'t4', name:'Blazer', emoji:'🧥', color:'#2C2C3E', colorName:'Navy' },
+    { id:'t5', name:'Turtleneck', emoji:'🧣', color:'#F5F5DC', colorName:'Cream' },
+    { id:'t6', name:'Halter Top', emoji:'👙', color:'#FF4757', colorName:'Red' },
+  ],
+  bottoms: [
+    { id:'b1', name:'Palazzo Pants', emoji:'👖', color:'#1A1A2E', colorName:'Midnight' },
+    { id:'b2', name:'Mini Skirt', emoji:'🩱', color:'#FF6B9D', colorName:'Pink' },
+    { id:'b3', name:'Midi Skirt', emoji:'🧶', color:'#DDA0DD', colorName:'Plum' },
+    { id:'b4', name:'Wide-Leg Jeans', emoji:'👖', color:'#4169E1', colorName:'Blue' },
+    { id:'b5', name:'Cargo Pants', emoji:'🩱', color:'#6B8E23', colorName:'Olive' },
+    { id:'b6', name:'Pleated Skirt', emoji:'💐', color:'#FFF0F5', colorName:'Blush' },
+  ],
+  dresses: [
+    { id:'d1', name:'Maxi Dress', emoji:'👗', color:'#9B5DE5', colorName:'Purple' },
+    { id:'d2', name:'Wrap Dress', emoji:'🌸', color:'#FF85A1', colorName:'Rose' },
+    { id:'d3', name:'Slip Dress', emoji:'✨', color:'#FFD700', colorName:'Gold' },
+    { id:'d4', name:'Shirt Dress', emoji:'🎀', color:'#87CEEB', colorName:'Blue' },
+    { id:'d5', name:'Bodycon', emoji:'💫', color:'#FF4757', colorName:'Red' },
+    { id:'d6', name:'Boho Dress', emoji:'🌺', color:'#DEB887', colorName:'Tan' },
+  ],
+  shoes: [
+    { id:'s1', name:'Block Heels', emoji:'👠', color:'#C9A96E', colorName:'Nude' },
+    { id:'s2', name:'Sneakers', emoji:'👟', color:'#FFFFFF', colorName:'White' },
+    { id:'s3', name:'Ankle Boots', emoji:'🥾', color:'#3D2B1F', colorName:'Brown' },
+    { id:'s4', name:'Strappy Sandals', emoji:'🩴', color:'#FFD700', colorName:'Gold' },
+    { id:'s5', name:'Kitten Heels', emoji:'👡', color:'#FFB6C1', colorName:'Pink' },
+    { id:'s6', name:'Combat Boots', emoji:'🥿', color:'#000000', colorName:'Black' },
+  ],
+  accessories: [
+    { id:'a1', name:'Ear Cuffs', emoji:'👂', color:'#FFD700', colorName:'Gold' },
+    { id:'a2', name:'Mini Clutch', emoji:'👜', color:'#C0C0C0', colorName:'Silver' },
+    { id:'a3', name:'Layered Necklace', emoji:'📿', color:'#FFD700', colorName:'Gold' },
+    { id:'a4', name:'Wide Belt', emoji:'⚜️', color:'#8B4513', colorName:'Brown' },
+    { id:'a5', name:'Bucket Hat', emoji:'🎩', color:'#F5DEB3', colorName:'Wheat' },
+    { id:'a6', name:'Silk Scarf', emoji:'🧣', color:'#FF69B4', colorName:'Pink' },
+  ],
+  makeup: [
+    { id:'m1', name:'Natural Glow', emoji:'🌟', color:'#FFD700', colorName:'Warm' },
+    { id:'m2', name:'Bold Glam', emoji:'💋', color:'#DC143C', colorName:'Red' },
+    { id:'m3', name:'Smoky Eye', emoji:'🖤', color:'#2F2F2F', colorName:'Dark' },
+    { id:'m4', name:'No-Makeup Makeup', emoji:'💆', color:'#FDDBB4', colorName:'Nude' },
+    { id:'m5', name:'Colorful Editorial', emoji:'🎨', color:'#FF00FF', colorName:'Pop' },
+    { id:'m6', name:'Dewy Fresh', emoji:'💧', color:'#87CEEB', colorName:'Cool' },
+  ]
+};
+
+// Track selected items
+const selectedItems = {};
+let cartItems = [];
+
+// ── Render Wardrobe Grids ───────────────────────────────────
+function renderGrid(gridId, items) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = items.map(item => `
+    <div class="wardrobe-item" data-id="${item.id}" onclick="selectItem('${item.id}', '${item.emoji}', '${item.name}')">
+      <div class="item-emoji">${item.emoji}</div>
+      <div class="item-name">${item.name}</div>
+      <div class="item-color" style="background:${item.color};"></div>
+    </div>
+  `).join('');
+}
+
+renderGrid('topGrid', catalog.tops);
+renderGrid('bottomGrid', catalog.bottoms);
+renderGrid('dressGrid', catalog.dresses);
+renderGrid('shoesGrid', catalog.shoes);
+renderGrid('accGrid', catalog.accessories);
+renderGrid('makeupGrid', catalog.makeup);
+
+// ── Item Selection ──────────────────────────────────────────
+function selectItem(id, emoji, name) {
+  const catMap = {
+    't': {cat:'tops', label:'label-top', textEl:'label-top-text'},
+    'b': {cat:'bottoms', label:'label-bottom', textEl:'label-bottom-text'},
+    'd': {cat:'tops', label:'label-top', textEl:'label-top-text'},
+    's': {cat:'shoes', label:'label-shoes', textEl:'label-shoes-text'},
+    'a': {cat:'accessories', label:'label-acc1', textEl:'label-acc1-text'},
+    'm': {cat:'makeup', label:null, textEl:null},
+  };
+  const prefix = id[0];
+  const info = catMap[prefix];
+  if (!info) return;
+
+  // Deselect previous in same cat
+  const prevEl = document.querySelector(`.wardrobe-item.selected[data-id^="${prefix}"]`);
+  if (prevEl) prevEl.classList.remove('selected');
+
+  // Select this
+  const el = document.querySelector(`.wardrobe-item[data-id="${id}"]`);
+  if (el) el.classList.add('selected');
+  selectedItems[prefix] = { id, emoji, name };
+
+  // Update outfit label
+  if (info.label) {
+    const labelEl = document.getElementById(info.label);
+    document.getElementById(info.textEl).textContent = emoji + ' ' + name;
+    labelEl.style.display = 'flex';
+  }
+
+  // Update 3D clothing mesh or 2D canvas makeup
+  if (prefix === "m") {
+    applyMakeupLook(id, skinColorHex); if (currentViewMode === "2D") render2DMakeup();
+  } else if (prefix === "a") {
+    update3DAvatarAccessories(id); if (currentViewMode === "2D") render2DGarments();
+  } else {
+    update3DAvatarClothes(id); if (currentViewMode === "2D") render2DGarments();
+  }
+
+  // Sparkle effect
+  spawnSparkles();
+  updateCartCount();
+}
+
+function spawnSparkles() {
+  const viewport = document.getElementById('viewport');
+  const emojis = ['✨','⭐','💫','🌟'];
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    s.style.cssText = `
+      left:${30+Math.random()*40}%;
+      top:${20+Math.random()*60}%;
+      --dx:${(Math.random()-0.5)*100}px;
+      animation-delay:${i*0.1}s;
+    `;
+    viewport.appendChild(s);
+    setTimeout(() => s.remove(), 1000);
+  }
+}
+
+function updateCartCount() {
+  const count = Object.keys(selectedItems).length;
+  document.getElementById('cartCount').textContent = count;
+}
+
+// ── Custom Makeup Live Color Pickers ────────────────────────
+document.getElementById("lipstickColorPicker")?.addEventListener("input", (e) => {
+  activeMakeup.lipstick = e.target.value;
+  redrawMakeupTexture(skinColorHex);
+});
+document.getElementById("blushColorPicker")?.addEventListener("input", (e) => {
+  activeMakeup.blush = e.target.value;
+  activeMakeup.blushIntensity = 0.4;
+  redrawMakeupTexture(skinColorHex);
+});
+document.getElementById("eyelinerColorPicker")?.addEventListener("input", (e) => {
+  activeMakeup.eyeliner = e.target.value;
+  redrawMakeupTexture(skinColorHex);
+});
+
+// ── Sidebar Tab Switching ───────────────────────────────────
+document.querySelectorAll('.sidebar-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.category-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('cat-' + tab.dataset.cat).classList.add('active');
+  });
+});
+
+// ── Panel Tab Switching ─────────────────────────────────────
+document.querySelectorAll('.panel-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+  });
+});
+
+// ── Mannequin Rotation ──────────────────────────────────────
+document.getElementById('rotateLeft').addEventListener('click', () => {
+  if (mannequinGroup) mannequinGroup.rotation.y -= 72 * Math.PI / 180;
+});
+document.getElementById('rotateRight').addEventListener('click', () => {
+  if (mannequinGroup) mannequinGroup.rotation.y += 72 * Math.PI / 180;
+});
+document.getElementById('resetView').addEventListener('click', () => {
+  if (mannequinGroup) mannequinGroup.rotation.set(0, 0, 0);
+  if (camera) camera.position.set(0, 2, 8.5);
+});
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  if (camera) camera.position.z = Math.max(4.0, camera.position.z - 0.8);
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  if (camera) camera.position.z = Math.min(14.0, camera.position.z + 0.8);
+});
+
+document.getElementById('saveSnapshot').addEventListener('click', () => {
+  try {
+    const is3D = document.getElementById('threeCanvas').style.display !== 'none';
+    if (is3D) {
+      const canvas3d = document.getElementById('threeCanvas');
+      const link = document.createElement('a');
+      link.download = 'avarion-3d-look.png';
+      link.href = canvas3d.toDataURL('image/png');
+      link.click();
+    } else {
+      const faceCanvas = document.getElementById('face2DCanvas');
+      const link = document.createElement('a');
+      link.download = 'avarion-editorial-look.png';
+      link.href = faceCanvas ? faceCanvas.toDataURL('image/png') : '#';
+      if (faceCanvas) link.click();
+    }
+    showToast('📸 Editorial snapshot exported successfully!', 'success');
+  } catch (err) {
+    showToast('Look saved to lookbook history.', 'success');
+  }
+});
+
+// ── AI Recommendations ──────────────────────────────────────
+async function loadAIRecommendations() {
+  const loading = document.getElementById('aiLoading');
+  loading.classList.add('show');
+
+  try {
+    const payload = {
+      event: userData.event || 'casual',
+      style: (userData.styles || []).join(', ') || 'modern',
+      budget: userData.budget ? `INR ${userData.budget}` : 'INR 3000',
+      bodyType: userData.bodyType || 'average',
+      skinTone: userData.skinTone || 'medium',
+      gender: userData.gender || 'Female'
+    };
+
+    const resp = await fetch('../api/recommend', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, typeof getApiKeyHeader === 'function' ? getApiKeyHeader() : {}),
+      body: JSON.stringify(payload)
+    });
+
+    const data = await resp.json();
+    renderRecommendations(data);
+    renderMakeup(data.makeup);
+  } catch (err) {
+    console.warn('AI API unavailable, using demo data:', err);
+    const demo = getDemoRec();
+    renderRecommendations(demo);
+    renderMakeup(demo.makeup);
+  } finally {
+    loading.classList.remove('show');
+  }
+}
+
+function renderRecommendations(data) {
+  // Stylist note
+  if (data.stylist_note) {
+    document.getElementById('stylistNoteEl').innerHTML = `
+      <div class="stylist-note">
+        <div class="stylist-avatar">🤖</div>
+        <div class="stylist-name">✨ Ava, Your AI Stylist</div>
+        <p class="stylist-text">"${data.stylist_note}"</p>
+      </div>`;
+  }
+
+  // Outfit items
+  const recs = [];
+  if (data.outfit?.top) recs.push({ icon:'👕', cat:'TOP', ...data.outfit.top });
+  if (data.outfit?.bottom) recs.push({ icon:'👖', cat:'BOTTOM', ...data.outfit.bottom });
+  if (data.outfit?.dress) recs.push({ icon:'👗', cat:'DRESS', ...data.outfit.dress });
+  if (data.outfit?.outerwear) recs.push({ icon:'🧥', cat:'OUTERWEAR', ...data.outfit.outerwear });
+
+  document.getElementById('aiOutfitRecs').innerHTML = recs.map(item => `
+    <div class="rec-card">
+      <div class="rec-header">
+        <div class="rec-icon">${item.icon}</div>
+        <div>
+          <div class="rec-category">${item.cat}</div>
+          <div class="rec-name">${item.name || ''}</div>
+        </div>
+        ${item.color ? `<div style="width:24px;height:24px;border-radius:50%;background:${item.color};margin-left:auto;border:2px solid rgba(255,255,255,0.2);"></div>` : ''}
+      </div>
+      <p class="rec-desc">${item.description || ''}</p>
+      <span class="rec-price">${item.price_range || ''}</span>
+      <div class="rec-actions">
+        <button class="btn btn-secondary btn-sm" onclick="addToCart('${item.name}','${item.cat}')">+ Add</button>
+        <button class="btn btn-ghost btn-sm" onclick="searchItem('${item.name}')">🔍 Search</button>
+      </div>
+    </div>`).join('');
+
+  // Footwear
+  if (data.footwear) {
+    document.getElementById('aiFootwearRec').innerHTML = `
+      <div class="rec-card">
+        <div class="rec-header">
+          <div class="rec-icon">👠</div>
+          <div>
+            <div class="rec-category">FOOTWEAR</div>
+            <div class="rec-name">${data.footwear.name}</div>
+          </div>
+          ${data.footwear.color ? `<div style="width:24px;height:24px;border-radius:50%;background:${data.footwear.color};margin-left:auto;border:2px solid rgba(255,255,255,0.2);"></div>` : ''}
+        </div>
+        <p class="rec-desc">${data.footwear.description}</p>
+        <span class="rec-price">${data.footwear.price_range || ''}</span>
+        <div class="rec-actions">
+          <button class="btn btn-secondary btn-sm" onclick="addToCart('${data.footwear.name}','Footwear')">+ Add</button>
+          <button class="btn btn-ghost btn-sm" onclick="searchItem('${data.footwear.name}')">🔍 Search</button>
+        </div>
+      </div>`;
+  }
+
+  // Accessories
+  if (data.accessories?.length) {
+    document.getElementById('aiAccessoryRecs').innerHTML = data.accessories.map(acc => `
+      <div class="rec-card">
+        <div class="rec-header">
+          <div class="rec-icon">💎</div>
+          <div>
+            <div class="rec-category">${(acc.type || 'ACCESSORY').toUpperCase()}</div>
+            <div class="rec-name">${acc.name}</div>
+          </div>
+        </div>
+        <p class="rec-desc">${acc.description}</p>
+        <div class="rec-actions">
+          <button class="btn btn-secondary btn-sm" onclick="addToCart('${acc.name}','${acc.type}')">+ Add</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // Color story
+  if (data.color_story) {
+    document.getElementById('styleTipEl').innerHTML = `
+      <div class="card" style="gap:12px; display:flex; flex-direction:column;">
+        <p class="section-label">Color Story</p>
+        <div class="color-story-strip">
+          ${data.color_story.map(c => `<div class="color-story-swatch" style="background:${c};" title="${c}"></div>`).join('')}
+          <span class="body-sm text-muted" style="margin-left:8px;">${data.color_story.join(' · ')}</span>
+        </div>
+        ${data.style_tip ? `<p class="body-sm" style="color:var(--clr-accent);">💡 ${data.style_tip}</p>` : ''}
+      </div>`;
+  }
+
+  // Apply to mannequin labels if top/bottom available
+  if (data.outfit?.top) { 
+    document.getElementById('label-top-text').textContent = '👕 ' + data.outfit.top.name; 
+    document.getElementById('label-top').style.display = 'flex'; 
+    if (topMaterial) {
+      topMaterial.color.set(data.outfit.top.color || '#FFFFFF');
+      topMaterial.visible = true;
+    }
+    if (dressMaterial) dressMaterial.visible = false;
+  }
+  if (data.outfit?.bottom) { 
+    document.getElementById('label-bottom-text').textContent = '👖 ' + data.outfit.bottom.name; 
+    document.getElementById('label-bottom').style.display = 'flex'; 
+    if (bottomMaterial) {
+      bottomMaterial.color.set(data.outfit.bottom.color || '#FFFFFF');
+      bottomMaterial.visible = true;
+    }
+    if (dressMaterial) dressMaterial.visible = false;
+  }
+  if (data.outfit?.dress) {
+    document.getElementById('label-top').style.display = 'none';
+    document.getElementById('label-bottom').style.display = 'none';
+    if (dressMaterial) {
+      dressMaterial.color.set(data.outfit.dress.color || '#FFFFFF');
+      dressMaterial.visible = true;
+    }
+    if (topMaterial) topMaterial.visible = false;
+    if (bottomMaterial) bottomMaterial.visible = false;
+  }
+  if (data.footwear) { 
+    document.getElementById('label-shoes-text').textContent = '👠 ' + data.footwear.name; 
+    document.getElementById('label-shoes').style.display = 'flex'; 
+    if (shoesMaterial) {
+      shoesMaterial.color.set(data.footwear.color || '#333333');
+      shoesMaterial.visible = true;
+    }
+  }
+  if (data.accessories?.[0]) { document.getElementById('label-acc1-text').textContent = '💍 ' + data.accessories[0].name; document.getElementById('label-acc1').style.display = 'flex'; }
+  if (data.accessories?.[1]) { document.getElementById('label-acc2-text').textContent = '💎 ' + data.accessories[1].name; document.getElementById('label-acc2').style.display = 'flex'; }
+}
+
+function renderMakeup(makeup) {
+  if (!makeup) return;
+  document.getElementById('makeupCard').innerHTML = `
+    <div class="makeup-look-title">✨ ${makeup.overall_look || 'Your Makeup Look'}</div>
+    <p class="body-sm text-muted" style="margin-bottom:12px;">AI-curated for your skin tone and event</p>
+    <div class="makeup-rows">
+      <div class="makeup-row"><div class="makeup-row-icon">🌟</div><div><div class="makeup-row-label">Base</div><div class="makeup-row-val">${makeup.base}</div></div></div>
+      <div class="makeup-row"><div class="makeup-row-icon">👁️</div><div><div class="makeup-row-label">Eyes</div><div class="makeup-row-val">${makeup.eyes}</div></div></div>
+      <div class="makeup-row"><div class="makeup-row-icon">💋</div><div><div class="makeup-row-label">Lips</div><div class="makeup-row-val">${makeup.lips}</div></div></div>
+      <div class="makeup-row"><div class="makeup-row-icon">🌸</div><div><div class="makeup-row-label">Blush</div><div class="makeup-row-val">${makeup.blush}</div></div></div>
+    </div>`;
+}
+
+// ── Trends ─────────────────────────────────────────────────
+async function loadTrends() {
+  try {
+    const resp = await fetch('../api/trends', { headers: typeof getApiKeyHeader === 'function' ? getApiKeyHeader() : {} });
+    const trends = await resp.json();
+    renderTrends(trends);
+  } catch {
+    renderTrends(getDefaultTrends());
+  }
+}
+
+function renderTrends(trends) {
+  document.getElementById('trendsContainer').innerHTML = trends.map(t => `
+    <div class="trend-card">
+      <div class="trend-card-header">
+        <div style="font-size:1.4rem;">${t.vibe === 'Refined' ? '🤍' : t.vibe === 'Playful' ? '💜' : t.vibe === 'Joyful' ? '🌈' : t.vibe === 'Dreamy' ? '🌸' : t.vibe === 'Edgy' ? '⚡' : '🍂'}</div>
+        <div>
+          <p style="font-weight:700; font-size:0.9rem;">${t.name}</p>
+          <p style="font-size:0.75rem; color:var(--clr-text-3);">${t.vibe}</p>
+        </div>
+        <div class="trend-color-bar" style="margin-left:auto;">
+          ${(t.color_palette || []).map(c => `<div class="trend-color-dot" style="background:${c};"></div>`).join('')}
+        </div>
+      </div>
+      <p style="font-size:0.82rem; color:var(--clr-text-2); margin-bottom:10px;">${t.description}</p>
+      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        ${(t.key_pieces || []).map(p => `<span style="padding:3px 10px; background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:999px; font-size:0.72rem;">${p}</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ── Shopping ────────────────────────────────────────────────
+let cartList = [];
+
+function addToCart(name, category) {
+  if (!cartList.find(i => i.name === name)) {
+    cartList.push({ name, category });
+    updateCartCount();
+    showToast(`✅ "${name}" added to look!`, 'success');
+  }
+}
+
+function searchItem(name) {
+  const q = encodeURIComponent(name);
+  window.open(`https://www.myntra.com/${q.toLowerCase().replace(/%20/g, '-')}`, '_blank');
+}
+
+function goShopping() {
+  sessionStorage.setItem('avarionCart', JSON.stringify(cartList));
+  sessionStorage.setItem('avarionSelected', JSON.stringify(selectedItems));
+  // Save active makeup and parametric measurements to lookbook state
+  sessionStorage.setItem('avarionMakeup', JSON.stringify(activeMakeup));
+  if (userData) {
+    sessionStorage.setItem('avarionUser', JSON.stringify(userData));
+  }
+  // Persist look to persistent lookbook history in localStorage
+  try {
+    const lookbook = JSON.parse(localStorage.getItem('avarionLookbook') || '[]');
+    lookbook.unshift({
+      id: Date.now(),
+      date: new Date().toLocaleDateString(),
+      event: userData.event || 'Custom Look',
+      selectedItems: selectedItems,
+      makeup: activeMakeup,
+      bodyType: userData.bodyType || 'Hourglass'
+    });
+    localStorage.setItem('avarionLookbook', JSON.stringify(lookbook.slice(0, 10)));
+  } catch (e) {
+    console.warn('Could not save to localStorage lookbook:', e);
+  }
+  window.location.href = 'shop.html';
+}
+
+document.getElementById('shopBtn').addEventListener('click', goShopping);
+document.getElementById('cartFab').addEventListener('click', goShopping);
+document.getElementById('finalShopBtn').addEventListener('click', goShopping);
+document.getElementById('regenBtn').addEventListener('click', loadAIRecommendations);
+
+// ── Toast ───────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast') || createToast();
+  toast.querySelector('#toastMsg').textContent = msg;
+  toast.querySelector('#toastIcon').textContent = type === 'success' ? '✅' : '❌';
+  toast.className = `toast ${type} show`;
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function createToast() {
+  const t = document.createElement('div');
+  t.id = 'toast';
+  t.className = 'toast';
+  t.innerHTML = '<span id="toastIcon">✅</span><span id="toastMsg"></span>';
+  document.body.appendChild(t);
+  return t;
+}
+
+// ── Demo Data ───────────────────────────────────────────────
+function getDemoRec() {
+  return {
+    stylist_note: `For your ${event}, I've curated a look that perfectly balances style and comfort. Let's make you the star of the show!`,
+    outfit: {
+      top: { name: 'Draped Satin Blouse', description: 'Fluid satin with a relaxed drape', color: '#C9A96E', price_range: 'INR 800–1,500' },
+      bottom: { name: 'High-Waist Palazzo', description: 'Wide-leg silhouette in fluid crepe', color: '#1A1A2E', price_range: 'INR 1,200–2,000' },
+      outerwear: { name: 'Cropped Blazer', description: 'Single-button structured blazer', color: '#16213E', price_range: 'INR 1,500–3,000' }
+    },
+    footwear: { name: 'Block Heel Mules', description: 'Open-toe block heels with strap', color: '#C9A96E', price_range: 'INR 1,000–2,500' },
+    accessories: [
+      { name: 'Statement Ear Cuffs', type: 'jewelry', description: 'Gold-toned geometric ear cuffs', color: '#FFD700' },
+      { name: 'Mini Quilted Clutch', type: 'bag', description: 'Compact evening clutch', color: '#C0C0C0' }
+    ],
+    makeup: { base: 'Light dewy foundation with SPF', eyes: 'Champagne shimmer + winged liner', lips: 'Berry-rose satin lipstick', blush: 'Warm peach cheek flush', overall_look: 'Golden Hour Glam' },
+    color_story: ['#C9A96E', '#1A1A2E', '#FFD700'],
+    style_tip: 'Tuck the blouse half into the palazzo for a polished silhouette that elongates the waist.'
+  };
+}
+
+function getDefaultTrends() {
+  return [
+    { name:'Quiet Luxury', description:'Understated elegance with premium neutrals.', key_pieces:['Cashmere sweater','Tailored trousers','Loafers'], color_palette:['#D4C5A9','#8B7355','#2C2C2C'], vibe:'Refined' },
+    { name:'Y2K Revival', description:'Bold metallics and early-2000s playful prints.', key_pieces:['Cargo pants','Platform sneakers','Butterfly clips'], color_palette:['#FF69B4','#7DF9FF','#FFD700'], vibe:'Playful' },
+    { name:'Dopamine Dressing', description:'Saturated colors that boost your mood.', key_pieces:['Color-block dress','Neon bag','Bold earrings'], color_palette:['#FF6B35','#FFE66D','#4ECDC4'], vibe:'Joyful' },
+    { name:'Cottagecore', description:'Romantic pastoral aesthetics.', key_pieces:['Floral midi dress','Wicker bag','Mary Janes'], color_palette:['#F5CBA7','#82C45D','#E8B4B8'], vibe:'Dreamy' },
+    { name:'Cyber Edge', description:'Dark techwear meets futuristic accents.', key_pieces:['Utility vest','Combat boots','LED acc.'], color_palette:['#0D0D0D','#9B59B6','#00FFFF'], vibe:'Edgy' },
+    { name:'Boho Chic', description:'Free-spirited layers with earth tones.', key_pieces:['Maxi skirt','Crochet top','Suede boots'], color_palette:['#C19A6B','#8B4513','#F5DEB3'], vibe:'Free' },
+  ];
+}
+
+// ── Init ────────────────────────────────────────────────────
+init3DScene();
+  switchViewMode("2D");
+  document.getElementById("btnMode2D")?.addEventListener("click", function(){ switchViewMode("2D"); });
+  document.getElementById("btnMode3D")?.addEventListener("click", function(){ switchViewMode("3D"); });
+loadAIRecommendations();
+loadTrends();
+</script>
+<script src="../js/settings.js"></script>
+</body>
+</html>

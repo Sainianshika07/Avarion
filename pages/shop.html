@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shop Your Look — Avarion</title>
+  <meta name="description" content="Shop your AI-curated outfit across Amazon, Flipkart, Myntra and more." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    .shop-layout {
+      min-height: 100vh;
+      padding-top: var(--nav-height);
+    }
+
+    .shop-hero {
+      background: linear-gradient(135deg, rgba(155,93,229,0.12) 0%, rgba(241,91,181,0.06) 100%);
+      border-bottom: 1px solid var(--clr-border);
+      padding: var(--space-10) 0;
+      text-align: center;
+    }
+
+    .shop-item-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      transition: var(--transition-slow);
+    }
+    .shop-item-card:hover { border-color: var(--clr-primary); transform: translateY(-4px); box-shadow: 0 24px 60px rgba(0,0,0,0.4), 0 0 30px var(--clr-primary-glow); }
+
+    .shop-item-header {
+      background: var(--grad-glass);
+      padding: var(--space-6);
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      border-bottom: 1px solid var(--clr-border);
+    }
+    .shop-item-emoji { font-size: 3rem; }
+    .shop-item-body { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+
+    .shop-platforms { display: flex; flex-direction: column; gap: var(--space-2); }
+
+    .platform-buy-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--clr-border);
+      transition: var(--transition-fast);
+      text-decoration: none;
+      color: var(--clr-text);
+      background: var(--clr-surface);
+    }
+    .platform-buy-btn:hover { border-color: var(--clr-primary); background: rgba(155,93,229,0.08); transform: translateX(3px); }
+
+    .platform-name { display: flex; align-items: center; gap: 10px; }
+    .platform-icon { width: 32px; height: 32px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+
+    /* Amazon */
+    .p-amazon .platform-icon { background: #FF9900; }
+    /* Flipkart */
+    .p-flipkart .platform-icon { background: #2874F0; }
+    /* Myntra */
+    .p-myntra .platform-icon { background: #FF3F6C; }
+    /* AJIO */
+    .p-ajio .platform-icon { background: #E84A2F; }
+    /* ASOS */
+    .p-asos .platform-icon { background: #000000; }
+
+    .shop-summary-card {
+      background: var(--grad-primary);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      text-align: center;
+      position: sticky;
+      top: calc(var(--nav-height) + 24px);
+    }
+
+    .look-avatar {
+      font-size: 6rem;
+      animation: float 5s ease-in-out infinite;
+      margin-bottom: var(--space-4);
+      filter: drop-shadow(0 10px 30px rgba(0,0,0,0.3));
+    }
+
+    .total-items-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.2);
+      padding: 8px 20px;
+      border-radius: var(--radius-full);
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: var(--space-4);
+    }
+
+    .share-btns { display: flex; gap: var(--space-3); justify-content: center; margin-top: var(--space-4); }
+
+    .confetti-container {
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden;
+    }
+    .confetti-piece {
+      position: absolute;
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+    }
+    @keyframes confettiFall {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="confetti-container" id="confettiContainer"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar scrolled">
+    <div class="container-wide" style="display:flex; align-items:center; width:100%; gap:20px;">
+      <a href="../index.html" class="nav-logo">
+        <div class="logo-icon" style="width:32px;height:32px;border-radius:8px;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;font-size:1rem;">👗</div>
+        <span>Avarion</span>
+      </a>
+      <span class="text-muted" style="font-size:0.9rem;">→</span>
+      <span style="font-weight:600; color:var(--clr-primary);">Shop Your Look</span>
+      <div style="margin-left:auto; display:flex; gap:12px;">
+        <a href="studio.html" class="btn btn-secondary btn-sm">← Back to Studio</a>
+        <a href="onboarding.html" class="btn btn-ghost btn-sm">Start Over</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="shop-layout">
+    <!-- Hero -->
+    <div class="shop-hero">
+      <div class="container">
+        <div class="anim-fade-in-up">
+          <span class="badge badge-green" style="margin-bottom:16px; display:inline-flex;">🎉 Your Look is Complete!</span>
+          <h1 class="heading-1" style="margin-bottom:12px;">Time to <span class="text-gradient">Shop Your Style</span></h1>
+          <p class="body-lg text-muted">Every item in your look is available on your favorite platforms. One click to add to cart!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="container" style="padding: var(--space-12) var(--space-6);">
+      <div style="display:grid; grid-template-columns:1fr 320px; gap:var(--space-8); align-items:start;">
+
+        <!-- Item Cards -->
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-6);">
+            <h2 class="heading-2">Your <span class="text-gradient">Selected Items</span></h2>
+            <button class="btn btn-primary btn-sm" id="shopAllBtn">🛒 Shop All Items</button>
+          </div>
+          <div id="shopItemsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5);">
+            <!-- Items rendered by JS -->
+          </div>
+
+          <!-- Empty state -->
+          <div id="emptyState" style="display:none; text-align:center; padding:var(--space-12);">
+            <p style="font-size:4rem; margin-bottom:16px;">🛍️</p>
+            <h3 class="heading-3" style="margin-bottom:8px;">No items selected yet</h3>
+            <p class="text-muted body-sm" style="margin-bottom:24px;">Go back to the studio and add items to your look!</p>
+            <a href="studio.html" class="btn btn-primary">← Back to Studio</a>
+          </div>
+        </div>
+
+        <!-- Summary Card -->
+        <div>
+          <div class="shop-summary-card anim-fade-in-right">
+            <div class="look-avatar" id="summaryAvatar" style="width: 200px; height: 320px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+              <canvas id="shopThreeCanvas" style="width: 100%; height: 100%; outline: none; border-radius: var(--radius-xl); display: block;"></canvas>
+            </div>
+            <h3 style="color:white; font-family:var(--font-display); font-size:1.4rem; margin-bottom:8px;">Your Complete Look</h3>
+            <p style="color:rgba(255,255,255,0.8); font-size:0.9rem; margin-bottom:16px;" id="summaryEvent">Ready to stun!</p>
+            <div class="total-items-badge" id="totalItemsBadge">
+              🎁 <span id="itemCountText">0 items</span> selected
+            </div>
+            <div style="background:rgba(0,0,0,0.15); border-radius:var(--radius-lg); padding:16px; margin-top:16px;">
+              <p style="color:rgba(255,255,255,0.7); font-size:0.8rem; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Estimated Budget Range</p>
+              <p style="color:white; font-size:1.5rem; font-weight:800;" id="estimatedBudget">₹ 3,000 – 8,000</p>
+            </div>
+            <div class="share-btns">
+              <button class="btn btn-sm" style="background:rgba(255,255,255,0.15); color:white;" onclick="shareLook()">📤 Share Look</button>
+              <button class="btn btn-sm" style="background:rgba(255,255,255,0.15); color:white;" onclick="saveLook()">💾 Save Look</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tip Section -->
+      <div class="card" style="margin-top:var(--space-8); border-left:3px solid var(--clr-accent);">
+        <div style="display:flex; align-items:flex-start; gap:16px;">
+          <span style="font-size:2rem; flex-shrink:0;">💡</span>
+          <div>
+            <h3 class="heading-3" style="margin-bottom:8px; color:var(--clr-accent);">Pro Shopping Tip</h3>
+            <p class="body-sm text-muted">Add all items to separate wishlists on each platform and compare prices before buying. Many platforms offer Cashback or bank offers that can save you 10–30%!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <span id="toastIcon">✅</span>
+    <span id="toastMsg">Done!</span>
+  </div>
+
+<script>
+  const userData = JSON.parse(sessionStorage.getItem('avarionUser') || '{}');
+  const cartList = JSON.parse(sessionStorage.getItem('avarionCart') || '[]');
+
+  // Set summary
+  if (userData.event) document.getElementById('summaryEvent').textContent = 'Ready for ' + userData.event + '!';
+  document.getElementById('itemCountText').textContent = cartList.length + ' item' + (cartList.length !== 1 ? 's' : '');
+
+  const budget = userData.budget || 3000;
+  const sym = userData.currency === 'USD' ? '$' : userData.currency === 'EUR' ? '€' : '₹';
+  document.getElementById('estimatedBudget').textContent = `${sym} ${budget.toLocaleString('en-IN')} – ${(budget * 2.5).toLocaleString('en-IN')}`;
+
+  // Build default cart if empty
+  const defaultItems = [
+    { name: 'Draped Satin Blouse', category: 'Tops', emoji: '👚' },
+    { name: 'High-Waist Palazzo Pants', category: 'Bottoms', emoji: '👖' },
+    { name: 'Block Heel Mules', category: 'Footwear', emoji: '👠' },
+    { name: 'Statement Ear Cuffs', category: 'Jewelry', emoji: '💍' },
+    { name: 'Mini Quilted Clutch', category: 'Bags', emoji: '👜' },
+  ];
+  const items = cartList.length ? cartList : defaultItems;
+
+  function buildLinks(name) {
+    const q = encodeURIComponent(name);
+    return {
+      amazon: `https://www.amazon.in/s?k=${q}&tag=avarion-21`,
+      flipkart: `https://www.flipkart.com/search?q=${q}&affid=avarion`,
+      myntra: `https://www.myntra.com/${name.toLowerCase().replace(/\s+/g, '-')}?utm_source=avarion_affiliate`,
+      ajio: `https://www.ajio.com/search/?text=${q}`,
+      asos: `https://www.asos.com/search/?q=${q}`,
+    };
+  }
+
+  function getEmoji(cat) {
+    const m = { Tops:'👚', Bottoms:'👖', Dresses:'👗', Footwear:'👠', Jewelry:'💍', Bags:'👜', Accessories:'💎', Makeup:'💄' };
+    return m[cat] || '🛍️';
+  }
+
+  // Render items
+  const grid = document.getElementById('shopItemsGrid');
+  if (items.length === 0) {
+    document.getElementById('emptyState').style.display = 'block';
+    grid.style.display = 'none';
+  } else {
+    items.forEach((item, idx) => {
+      const links = buildLinks(item.name);
+      const emoji = item.emoji || getEmoji(item.category);
+      const card = document.createElement('div');
+      card.className = 'shop-item-card anim-fade-in-up';
+      card.style.animationDelay = (idx * 0.08) + 's';
+      card.innerHTML = `
+        <div class="shop-item-header">
+          <div class="shop-item-emoji">${emoji}</div>
+          <div>
+            <p style="font-size:0.72rem; color:var(--clr-text-3); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">${item.category || 'Item'}</p>
+            <p style="font-weight:700; font-size:1rem;">${item.name}</p>
+          </div>
+        </div>
+        <div class="shop-item-body">
+          <p class="body-sm text-muted">Shop this item on your favorite platform:</p>
+          <div class="shop-platforms">
+            <a href="${links.amazon}" target="_blank" class="platform-buy-btn p-amazon">
+              <div class="platform-name"><div class="platform-icon">🛒</div><span>Amazon</span></div>
+              <span style="font-size:0.8rem; color:var(--clr-text-3);">View →</span>
+            </a>
+            <a href="${links.flipkart}" target="_blank" class="platform-buy-btn p-flipkart">
+              <div class="platform-name"><div class="platform-icon">🛍️</div><span>Flipkart</span></div>
+              <span style="font-size:0.8rem; color:var(--clr-text-3);">View →</span>
+            </a>
+            <a href="${links.myntra}" target="_blank" class="platform-buy-btn p-myntra">
+              <div class="platform-name"><div class="platform-icon">👗</div><span>Myntra</span></div>
+              <span style="font-size:0.8rem; color:var(--clr-text-3);">View →</span>
+            </a>
+            <a href="${links.ajio}" target="_blank" class="platform-buy-btn p-ajio">
+              <div class="platform-name"><div class="platform-icon">✨</div><span>AJIO</span></div>
+              <span style="font-size:0.8rem; color:var(--clr-text-3);">View →</span>
+            </a>
+          </div>
+        </div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  // Shop all
+  document.getElementById('shopAllBtn').addEventListener('click', () => {
+    items.forEach((item, i) => {
+      setTimeout(() => {
+        const q = encodeURIComponent(item.name);
+        window.open(`https://www.myntra.com/${item.name.toLowerCase().replace(/\s+/g, '-')}`, '_blank');
+      }, i * 500);
+    });
+    showToast('🛒 Opening all items in new tabs!', 'success');
+  });
+
+  // Confetti
+  function launchConfetti() {
+    const colors = ['#9B5DE5','#F15BB5','#FEE440','#00BBF9','#00F5D4'];
+    const container = document.getElementById('confettiContainer');
+    for (let i = 0; i < 80; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.cssText = `
+        left:${Math.random()*100}%;
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        animation-duration:${1.5 + Math.random()*2}s;
+        animation-delay:${Math.random()*0.5}s;
+        transform:rotate(${Math.random()*360}deg);
+        border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+      `;
+      container.appendChild(piece);
+      setTimeout(() => piece.remove(), 3000);
+    }
+  }
+
+  setTimeout(launchConfetti, 300);
+
+  function shareLook() { showToast('📤 Share feature coming soon!', 'success'); }
+  function saveLook() {
+    const data = { items, event: userData.event, date: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'avarion-look.json'; a.click();
+    showToast('💾 Look saved!', 'success');
+  }
+
+  function showToast(msg, type) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    document.getElementById('toastIcon').textContent = type === 'success' ? '✅' : '❌';
+    toast.className = `toast ${type} show`;
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  // ── Three.js Shop 3D Try-On Setup ──────────────────────────
+  let shopScene, shopCamera, shopRenderer, shopMannequinGroup;
+  let shopBodyMaterial, shopCharGroup;
+  let shopChestMesh, shopWaistMesh, shopHipsMesh;
+  let shopFacePlaneMesh;
+  
+  // Clothing materials
+  let shopTopMaterial, shopBottomMaterial, shopDressMaterial, shopShoesMaterial;
+
+  function initShop3DScene() {
+    const container = document.getElementById('summaryAvatar');
+    if (!container) return;
+    const width = container.clientWidth || 200;
+    const height = container.clientHeight || 320;
+
+    // Renderer
+    shopRenderer = new THREE.WebGLRenderer({ canvas: document.getElementById('shopThreeCanvas'), alpha: true, antialias: true });
+    shopRenderer.setSize(width, height);
+    shopRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Scene
+    shopScene = new THREE.Scene();
+
+    // Camera
+    shopCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    shopCamera.position.set(0, 1.8, 8.5);
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    shopScene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    keyLight.position.set(4, 8, 5);
+    shopScene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    fillLight.position.set(-4, 4, 3);
+    shopScene.add(fillLight);
+
+    const rimLight = new THREE.PointLight(0xffffff, 0.65, 10);
+    rimLight.position.set(0, 4, -4);
+    shopScene.add(rimLight);
+
+    // Mannequin Group
+    shopMannequinGroup = new THREE.Group();
+    shopScene.add(shopMannequinGroup);
+
+    // Base body material based on skin tone
+    const skinToneColors = {
+      'Fair': '#FDDBB4',
+      'Light': '#EBBF8F',
+      'Medium': '#C68642',
+      'Tan': '#A0522D',
+      'Dark': '#6B3A2A',
+      'Deep': '#3B1F15'
+    };
+    const currentSkin = userData.skinTone || 'Light';
+    const skinColorHex = skinToneColors[currentSkin] || '#EBBF8F';
+
+    shopBodyMaterial = new THREE.MeshStandardMaterial({
+      color: skinColorHex,
+      roughness: 0.35,
+      metalness: 0.05
+    });
+
+    // Clothing Materials (glossy/satin finishes)
+    shopTopMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1, visible: false });
+    shopBottomMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.05, visible: false });
+    shopDressMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1, visible: false });
+    shopShoesMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.3, metalness: 0.1, visible: false });
+
+    // Build Mannequin structure
+    buildShopMannequin(skinColorHex);
+
+    // Interactive mouse drag
+    setupShopInteraction(document.getElementById('shopThreeCanvas'));
+
+    // Dress mannequin based on cart/selections
+    dressShopMannequin();
+
+    // Render loop
+    function animate() {
+      requestAnimationFrame(animate);
+      if (shopMannequinGroup) {
+        shopMannequinGroup.rotation.y += 0.005; // slowly rotate
+      }
+      shopRenderer.render(shopScene, shopCamera);
+    }
+    animate();
+
+    // Resize listener
+    window.addEventListener('resize', () => {
+      const w = container.clientWidth || 200;
+      const h = container.clientHeight || 320;
+      shopCamera.aspect = w / h;
+      shopCamera.updateProjectionMatrix();
+      shopRenderer.setSize(w, h);
+    });
+  }
+
+  function buildShopMannequin(skinColorHex) {
+    shopCharGroup = new THREE.Group();
+    shopMannequinGroup.add(shopCharGroup);
+
+    const hVal = userData.height || 165;
+    const wVal = userData.weight || 60;
+    const heightFactor = hVal / 165;
+    const weightFactor = wVal / 60;
+
+    // Torso proportions
+    const bodyType = userData.bodyType || 'Hourglass';
+    let chestScale = 1.0;
+    let waistScale = 0.95;
+    let hipScale = 1.0;
+
+    if (bodyType === 'Hourglass') { chestScale = 1.1; waistScale = 0.75; hipScale = 1.15; }
+    else if (bodyType === 'Pear') { chestScale = 0.85; waistScale = 0.8; hipScale = 1.25; }
+    else if (bodyType === 'Apple') { chestScale = 1.05; waistScale = 1.25; hipScale = 1.0; }
+    else if (bodyType === 'Rectangle') { chestScale = 0.95; waistScale = 0.95; hipScale = 0.95; }
+    else if (bodyType === 'Inverted Triangle' || bodyType === 'InvertedTriangle') { chestScale = 1.25; waistScale = 0.95; hipScale = 0.85; }
+
+    // 1. Head
+    const headGeom = new THREE.SphereGeometry(0.38, 32, 32);
+    const headMesh = new THREE.Mesh(headGeom, shopBodyMaterial);
+    headMesh.name = "head";
+    headMesh.position.set(0, 3.3, 0);
+    shopCharGroup.add(headMesh);
+
+    // Hair
+    const hairGroup = new THREE.Group();
+    headMesh.add(hairGroup);
+    const hairMaterial = new THREE.MeshStandardMaterial({ color: 0x312117, roughness: 0.4, metalness: 0.1 });
+    const genderVal = userData.gender || 'Female';
+    if (genderVal === 'Male') {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.395, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2.3), hairMaterial);
+      cap.position.set(0, 0.05, 0);
+      cap.rotation.x = -0.15;
+      hairGroup.add(cap);
+      const quiff = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.14), hairMaterial);
+      quiff.position.set(0, 0.34, 0.18);
+      quiff.rotation.x = 0.25;
+      hairGroup.add(quiff);
+    } else {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.395, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2.1), hairMaterial);
+      cap.position.set(0, 0.05, 0);
+      cap.rotation.x = -0.2;
+      hairGroup.add(cap);
+      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), hairMaterial);
+      bun.position.set(0, 0.38, -0.15);
+      hairGroup.add(bun);
+      const lockL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.9, 12), hairMaterial);
+      lockL.position.set(-0.35, -0.3, 0.1);
+      lockL.rotation.z = -0.1;
+      hairGroup.add(lockL);
+      const lockR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.9, 12), hairMaterial);
+      lockR.position.set(0.35, -0.3, 0.1);
+      lockR.rotation.z = 0.1;
+      hairGroup.add(lockR);
+    }
+
+    // Face mapping
+    if (userData.photoDataUrl) {
+      createCircularFaceTexture(userData.photoDataUrl, skinColorHex, (texture) => {
+        const faceGeom = new THREE.PlaneGeometry(0.55, 0.55);
+        const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+        shopFacePlaneMesh = new THREE.Mesh(faceGeom, faceMat);
+        shopFacePlaneMesh.position.set(0, 0, 0.381);
+        headMesh.add(shopFacePlaneMesh);
+      });
+    } else {
+      createFallbackFaceTexture(userData.gender || 'Female', skinColorHex, (texture) => {
+        const faceGeom = new THREE.PlaneGeometry(0.55, 0.55);
+        const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+        shopFacePlaneMesh = new THREE.Mesh(faceGeom, faceMat);
+        shopFacePlaneMesh.position.set(0, 0, 0.381);
+        headMesh.add(shopFacePlaneMesh);
+      });
+    }
+
+    // 2. Neck
+    const neckGeom = new THREE.CylinderGeometry(0.12, 0.14, 0.25, 16);
+    const neckMesh = new THREE.Mesh(neckGeom, shopBodyMaterial);
+    neckMesh.position.set(0, 3.0, 0);
+    shopCharGroup.add(neckMesh);
+
+    // 3. Torso
+    shopChestMesh = new THREE.Mesh(new THREE.SphereGeometry(0.44, 32, 16), shopBodyMaterial);
+    shopChestMesh.position.set(0, 2.65, 0);
+    shopChestMesh.scale.set(chestScale, 0.65, 0.85);
+    shopCharGroup.add(shopChestMesh);
+
+    shopWaistMesh = new THREE.Mesh(new THREE.SphereGeometry(0.41, 32, 16), shopBodyMaterial);
+    shopWaistMesh.position.set(0, 2.15, 0);
+    shopWaistMesh.scale.set(waistScale, 0.65, 0.85);
+    shopCharGroup.add(shopWaistMesh);
+
+    shopHipsMesh = new THREE.Mesh(new THREE.SphereGeometry(0.47, 32, 16), shopBodyMaterial);
+    shopHipsMesh.position.set(0, 1.65, 0);
+    shopHipsMesh.scale.set(hipScale, 0.65, 0.85);
+    shopCharGroup.add(shopHipsMesh);
+
+    // ── Draping Clothes overlay meshes ──
+    // Top
+    const topShirt = new THREE.Mesh(new THREE.CylinderGeometry(0.46 * chestScale, 0.44 * waistScale, 0.95, 32), shopTopMaterial);
+    topShirt.name = "topShirt";
+    topShirt.position.set(0, 2.45, 0);
+    shopCharGroup.add(topShirt);
+
+    // Sleeves
+    const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.45, 16), shopTopMaterial);
+    sleeveL.name = "sleeveL";
+    sleeveL.position.set(-0.62, 2.5, 0);
+    sleeveL.rotation.z = 0.22;
+    shopCharGroup.add(sleeveL);
+
+    const sleeveR = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.45, 16), shopTopMaterial);
+    sleeveR.name = "sleeveR";
+    sleeveR.position.set(0.62, 2.5, 0);
+    sleeveR.rotation.z = -0.22;
+    shopCharGroup.add(sleeveR);
+
+    // Bottom (Wide palazzo style trousers)
+    const pantsL = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * hipScale, 0.22, 1.45, 16), shopBottomMaterial);
+    pantsL.name = "pantsL";
+    pantsL.position.set(-0.24, 0.85, 0.02);
+    pantsL.rotation.z = -0.05;
+    shopCharGroup.add(pantsL);
+
+    const pantsR = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * hipScale, 0.22, 1.45, 16), shopBottomMaterial);
+    pantsR.name = "pantsR";
+    pantsR.position.set(0.24, 0.85, 0.02);
+    pantsR.rotation.z = 0.05;
+    shopCharGroup.add(pantsR);
+
+    // Dress (Flared gown mesh)
+    const dressSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.43 * waistScale, 0.88 * hipScale, 1.8, 32), shopDressMaterial);
+    dressSkirt.name = "dressSkirt";
+    dressSkirt.position.set(0, 1.4, 0.02);
+    shopCharGroup.add(dressSkirt);
+
+    // 4. Arms
+    // Left Shoulder
+    const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), shopBodyMaterial);
+    shoulderL.position.set(-0.57, 2.65, 0);
+    shopCharGroup.add(shoulderL);
+
+    const armLGroup = new THREE.Group();
+    armLGroup.position.copy(shoulderL.position);
+    shopCharGroup.add(armLGroup);
+
+    const upperArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.6, 16), shopBodyMaterial);
+    upperArmL.position.set(0, -0.3, 0);
+    armLGroup.add(upperArmL);
+
+    const elbowLGroup = new THREE.Group();
+    elbowLGroup.position.set(0, -0.6, 0);
+    armLGroup.add(elbowLGroup);
+
+    const jointElbowL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), shopBodyMaterial);
+    elbowLGroup.add(jointElbowL);
+
+    const lowerArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 16), shopBodyMaterial);
+    lowerArmL.position.set(0, -0.275, 0);
+    elbowLGroup.add(lowerArmL);
+
+    const handL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), shopBodyMaterial);
+    handL.position.set(0, -0.55, 0);
+    elbowLGroup.add(handL);
+
+    armLGroup.rotation.z = 0.22;
+    elbowLGroup.rotation.z = 0.15;
+
+    // Right Shoulder
+    const shoulderR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), shopBodyMaterial);
+    shoulderR.position.set(0.57, 2.65, 0);
+    shopCharGroup.add(shoulderR);
+
+    const armRGroup = new THREE.Group();
+    armRGroup.position.copy(shoulderR.position);
+    shopCharGroup.add(armRGroup);
+
+    const upperArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.6, 16), shopBodyMaterial);
+    upperArmR.position.set(0, -0.3, 0);
+    armRGroup.add(upperArmR);
+
+    const elbowRGroup = new THREE.Group();
+    elbowRGroup.position.set(0, -0.6, 0);
+    armRGroup.add(elbowRGroup);
+
+    const jointElbowR = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), shopBodyMaterial);
+    elbowRGroup.add(jointElbowR);
+
+    const lowerArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 16), shopBodyMaterial);
+    lowerArmR.position.set(0, -0.275, 0);
+    elbowRGroup.add(lowerArmR);
+
+    const handR = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), shopBodyMaterial);
+    handR.position.set(0, -0.55, 0);
+    elbowRGroup.add(handR);
+
+    armRGroup.rotation.z = -0.22;
+    elbowRGroup.rotation.z = -0.15;
+
+    // 5. Legs
+    // Left Leg
+    const hipL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), shopBodyMaterial);
+    hipL.position.set(-0.24, 1.5, 0);
+    shopCharGroup.add(hipL);
+
+    const legLGroup = new THREE.Group();
+    legLGroup.position.copy(hipL.position);
+    shopCharGroup.add(legLGroup);
+
+    const upperLegL = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.75, 16), shopBodyMaterial);
+    upperLegL.position.set(0, -0.375, 0);
+    legLGroup.add(upperLegL);
+
+    const kneeLGroup = new THREE.Group();
+    kneeLGroup.position.set(0, -0.75, 0);
+    legLGroup.add(kneeLGroup);
+
+    const jointKneeL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), shopBodyMaterial);
+    kneeLGroup.add(jointKneeL);
+
+    const lowerLegL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.7, 16), shopBodyMaterial);
+    lowerLegL.position.set(0, -0.35, 0);
+    kneeLGroup.add(lowerLegL);
+
+    // Right Leg
+    const hipR = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), shopBodyMaterial);
+    hipR.position.set(0.24, 1.5, 0);
+    shopCharGroup.add(hipR);
+
+    const legRGroup = new THREE.Group();
+    legRGroup.position.copy(hipR.position);
+    shopCharGroup.add(legRGroup);
+
+    const upperLegR = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.75, 16), shopBodyMaterial);
+    upperLegR.position.set(0, -0.375, 0);
+    legRGroup.add(upperLegR);
+
+    const kneeRGroup = new THREE.Group();
+    kneeRGroup.position.set(0, -0.75, 0);
+    legRGroup.add(kneeRGroup);
+
+    const jointKneeR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), shopBodyMaterial);
+    kneeRGroup.add(jointKneeR);
+
+    const lowerLegR = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.7, 16), shopBodyMaterial);
+    lowerLegR.position.set(0, -0.35, 0);
+    kneeRGroup.add(lowerLegR);
+
+    // Shoes
+    const footL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.13, 0.31), shopShoesMaterial);
+    footL.position.set(-0.24, 0.05, 0.06);
+    shopCharGroup.add(footL);
+
+    const footR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.13, 0.31), shopShoesMaterial);
+    footR.position.set(0.24, 0.05, 0.06);
+    shopCharGroup.add(footR);
+
+    // Apply scales
+    shopCharGroup.scale.set(weightFactor, heightFactor, weightFactor);
+    shopCharGroup.position.set(0, -1.8, 0);
+  }
+
+  function dressShopMannequin() {
+    const selected = JSON.parse(sessionStorage.getItem('avarionSelected') || '{}');
+    const cart = JSON.parse(sessionStorage.getItem('avarionCart') || '[]');
+
+    const catalogColors = {
+      't1': '#9B5DE5', 't2': '#F15BB5', 't3': '#00BBF9', 't4': '#00F5D4',
+      'b1': '#1B2A4A', 'b2': '#2C3E50', 'b3': '#34495E', 'b4': '#95A5A6',
+      'd1': '#FF5733', 'd2': '#C70039', 'd3': '#900C3F', 'd4': '#581845',
+      's1': '#C9A96E', 's2': '#000000', 's3': '#8B4513', 's4': '#FFFFFF',
+    };
+
+    let topColor = null, bottomColor = null, dressColor = null, shoesColor = null;
+    let hasTop = false, hasBottom = false, hasDress = false, hasShoes = false;
+
+    if (selected.t) { hasTop = true; topColor = catalogColors[selected.t.id] || '#FFFFFF'; }
+    if (selected.b) { hasBottom = true; bottomColor = catalogColors[selected.b.id] || '#2C3E50'; }
+    if (selected.d) { hasDress = true; dressColor = catalogColors[selected.d.id] || '#C70039'; }
+    if (selected.s) { hasShoes = true; shoesColor = catalogColors[selected.s.id] || '#333333'; }
+
+    // Fallback: Check cart
+    if (!hasTop && !hasBottom && !hasDress) {
+      cart.forEach(item => {
+        const cat = (item.category || '').toLowerCase();
+        if (cat.includes('top') || cat.includes('blouse') || cat.includes('shirt')) {
+          hasTop = true; topColor = topColor || '#C9A96E';
+        } else if (cat.includes('bottom') || cat.includes('pant') || cat.includes('skirt') || cat.includes('jeans')) {
+          hasBottom = true; bottomColor = bottomColor || '#16213E';
+        } else if (cat.includes('dress') || cat.includes('gown') || cat.includes('midi')) {
+          hasDress = true; dressColor = dressColor || '#A32A2A';
+        } else if (cat.includes('shoe') || cat.includes('heel') || cat.includes('mules') || cat.includes('sneaker')) {
+          hasShoes = true; shoesColor = shoesColor || '#C9A96E';
+        }
+      });
+    }
+
+    if (hasDress) {
+      shopDressMaterial.color.set(dressColor || '#A32A2A');
+      shopDressMaterial.visible = true;
+      shopTopMaterial.visible = false;
+      shopBottomMaterial.visible = false;
+    } else {
+      if (hasTop) {
+        shopTopMaterial.color.set(topColor || '#C9A96E');
+        shopTopMaterial.visible = true;
+      }
+      if (hasBottom) {
+        shopBottomMaterial.color.set(bottomColor || '#16213E');
+        shopBottomMaterial.visible = true;
+      }
+      shopDressMaterial.visible = false;
+    }
+
+    if (hasShoes) {
+      shopShoesMaterial.color.set(shoesColor || '#C9A96E');
+      shopShoesMaterial.visible = true;
+    } else {
+      shopShoesMaterial.visible = true;
+    }
+  }
+
+  function setupShopInteraction(canvas) {
+    let isDragging = false;
+    let previousMousePosition = { x: 0 };
+
+    canvas.addEventListener('mousedown', e => { isDragging = true; previousMousePosition.x = e.offsetX; });
+    canvas.addEventListener('mousemove', e => {
+      if (!isDragging || !shopMannequinGroup) return;
+      const deltaX = e.offsetX - previousMousePosition.x;
+      shopMannequinGroup.rotation.y += deltaX * 0.008;
+      previousMousePosition.x = e.offsetX;
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    // Touch support
+    canvas.addEventListener('touchstart', e => {
+      isDragging = true;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      previousMousePosition.x = touch.clientX - rect.left;
+    });
+    canvas.addEventListener('touchmove', e => {
+      if (!isDragging || !shopMannequinGroup) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const currentX = touch.clientX - rect.left;
+      const deltaX = currentX - previousMousePosition.x;
+      shopMannequinGroup.rotation.y += deltaX * 0.008;
+      previousMousePosition.x = currentX;
+    });
+    window.addEventListener('touchend', () => { isDragging = false; });
+  }
+
+  function createCircularFaceTexture(dataUrl, skinColorHex, callback) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = skinColorHex;
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(128, 128, 100, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(img, 28, 28, 200, 200);
+      ctx.restore();
+      const grad = ctx.createRadialGradient(128, 128, 80, 128, 128, 110);
+      const r = parseInt(skinColorHex.slice(1, 3), 16);
+      const g = parseInt(skinColorHex.slice(3, 5), 16);
+      const b = parseInt(skinColorHex.slice(5, 7), 16);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+      grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 1)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(128, 128, 120, 0, Math.PI * 2);
+      ctx.fill();
+      const texture = new THREE.CanvasTexture(canvas);
+      callback(texture);
+    };
+    img.src = dataUrl;
+  }
+
+  function createFallbackFaceTexture(gender, skinColorHex, callback) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = skinColorHex;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#2d1e18';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(88, 120, 16, 0.1 * Math.PI, 0.9 * Math.PI, false);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(168, 120, 16, 0.1 * Math.PI, 0.9 * Math.PI, false);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(88, 105, 20, Math.PI * 1.25, Math.PI * 1.75);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(168, 105, 20, Math.PI * 1.25, Math.PI * 1.75);
+    ctx.stroke();
+    ctx.fillStyle = '#ff6b81';
+    ctx.beginPath();
+    ctx.arc(128, 160, 10, 0, Math.PI);
+    ctx.fill();
+    const texture = new THREE.CanvasTexture(canvas);
+    callback(texture);
+  }
+
+  // Initialize shop scene
+  initShop3DScene();
+</script>
+<script src="../js/settings.js"></script>
+</body>
+</html>

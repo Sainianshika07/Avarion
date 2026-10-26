@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avarion — AI Fashion Makeover Studio | Virtual Wardrobe & Try-On</title>
+  <meta name="description" content="Avarion is your AI-powered virtual styling studio. Create a 3D avatar, try on outfits, get personalized fashion recommendations, and shop directly from top platforms like Amazon, Flipkart, and Myntra." />
+  <meta name="keywords" content="AI fashion, virtual try-on, 3D mannequin, outfit recommendation, virtual wardrobe, fashion makeover" />
+  <meta property="og:title" content="Avarion — AI Fashion Makeover Studio" />
+  <meta property="og:description" content="Your personal AI stylist. Create your avatar, try on looks, and shop smarter." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👗</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* ── Landing Page Specific Styles ── */
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      padding-top: var(--nav-height);
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .hero-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.35;
+    }
+    .hero-orb-1 { width: 600px; height: 600px; background: var(--clr-primary); top: -200px; right: -100px; animation: floatSlow 10s ease-in-out infinite; }
+    .hero-orb-2 { width: 400px; height: 400px; background: var(--clr-secondary); bottom: -100px; left: -100px; animation: floatSlow 12s ease-in-out infinite reverse; }
+    .hero-orb-3 { width: 300px; height: 300px; background: var(--clr-teal); top: 50%; left: 40%; animation: floatSlow 8s ease-in-out infinite; opacity: 0.2; }
+
+    .hero-grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(155,93,229,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(155,93,229,0.06) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 680px;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-6);
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(3.2rem, 7vw, 6.5rem);
+      font-weight: 900;
+      line-height: 1.0;
+      letter-spacing: -0.03em;
+      margin-bottom: var(--space-6);
+    }
+
+    .hero-title em {
+      font-style: italic;
+      background: var(--grad-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: 1.2rem;
+      color: var(--clr-text-2);
+      line-height: 1.7;
+      margin-bottom: var(--space-10);
+      max-width: 520px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: var(--space-8);
+      margin-top: var(--space-12);
+      padding-top: var(--space-8);
+      border-top: 1px solid var(--clr-border);
+    }
+    .hero-stat .stat-num {
+      font-size: 1.75rem;
+      font-weight: 800;
+      background: var(--grad-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-stat .stat-label { font-size: 0.82rem; color: var(--clr-text-3); margin-top: 2px; }
+
+    /* 3D Preview panel */
+    .hero-visual {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 520px;
+      z-index: 2;
+    }
+    @media (max-width: 1100px) { .hero-visual { display: none; } }
+
+    .mannequin-preview {
+      position: relative;
+      width: 380px;
+      height: 520px;
+      margin: 0 auto;
+    }
+
+    .mannequin-card {
+      background: var(--grad-glass);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      backdrop-filter: blur(20px);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      animation: glowPulse 4s ease-in-out infinite;
+    }
+
+    .mannequin-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 30%, rgba(155,93,229,0.15), transparent 60%);
+    }
+
+    .mannequin-figure {
+      width: 100%;
+      height: 380px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 20px 40px rgba(155,93,229,0.3));
+    }
+
+    .mannequin-tags {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .mannequin-tag {
+      position: absolute;
+      background: rgba(6,6,15,0.85);
+      border: 1px solid var(--clr-border-2);
+      border-radius: var(--radius-md);
+      padding: 8px 14px;
+      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+    }
+    .mannequin-tag.top-left { top: 20%; left: -10px; animation: fadeInLeft 0.8s 0.3s both; }
+    .mannequin-tag.top-right { top: 35%; right: -10px; animation: fadeInRight 0.8s 0.5s both; }
+    .mannequin-tag.bottom-left { bottom: 30%; left: -10px; animation: fadeInLeft 0.8s 0.7s both; }
+    .mannequin-tag.bottom-right { bottom: 15%; right: -10px; animation: fadeInRight 0.8s 0.9s both; }
+    .tag-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    .ai-badge-floating {
+      position: absolute;
+      bottom: var(--space-4);
+      background: var(--grad-primary);
+      color: var(--clr-white);
+      padding: 10px 18px;
+      border-radius: var(--radius-full);
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: bounceIn 0.8s 1.2s both;
+    }
+
+    /* Features Section */
+    .features { padding: var(--space-24) 0; }
+
+    .section-header { text-align: center; max-width: 640px; margin: 0 auto var(--space-16); }
+    .section-eyebrow { margin-bottom: var(--space-4); }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-6);
+    }
+    @media (max-width: 900px) { .feature-grid { grid-template-columns: 1fr; } }
+
+    .feature-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      transition: var(--transition-slow);
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--grad-card);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-card:hover { border-color: var(--clr-primary); transform: translateY(-6px); box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 0 40px var(--clr-primary-glow); }
+
+    .feature-icon {
+      width: 60px; height: 60px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin-bottom: var(--space-6);
+      position: relative;
+    }
+    .feature-icon-1 { background: linear-gradient(135deg, rgba(155,93,229,0.2), rgba(155,93,229,0.05)); }
+    .feature-icon-2 { background: linear-gradient(135deg, rgba(241,91,181,0.2), rgba(241,91,181,0.05)); }
+    .feature-icon-3 { background: linear-gradient(135deg, rgba(254,228,64,0.2), rgba(254,228,64,0.05)); }
+    .feature-icon-4 { background: linear-gradient(135deg, rgba(0,187,249,0.2), rgba(0,187,249,0.05)); }
+    .feature-icon-5 { background: linear-gradient(135deg, rgba(0,245,212,0.2), rgba(0,245,212,0.05)); }
+    .feature-icon-6 { background: linear-gradient(135deg, rgba(155,93,229,0.2), rgba(241,91,181,0.05)); }
+
+    .feature-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: var(--space-3); position: relative; }
+    .feature-card p { font-size: 0.9rem; color: var(--clr-text-2); line-height: 1.65; position: relative; }
+
+    /* How It Works */
+    .how-it-works { padding: var(--space-24) 0; background: linear-gradient(to bottom, transparent, rgba(155,93,229,0.04), transparent); }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-4);
+      position: relative;
+    }
+    .steps-grid::before {
+      content: '';
+      position: absolute;
+      top: 40px;
+      left: 12%;
+      right: 12%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--clr-primary), var(--clr-secondary), var(--clr-accent), transparent);
+    }
+    @media (max-width: 800px) {
+      .steps-grid { grid-template-columns: repeat(2, 1fr); }
+      .steps-grid::before { display: none; }
+    }
+
+    .step-card { text-align: center; padding: var(--space-6) var(--space-4); }
+    .step-number {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: var(--clr-surface);
+      border: 2px solid var(--clr-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin: 0 auto var(--space-6);
+      transition: var(--transition-base);
+      position: relative;
+    }
+    .step-card:hover .step-number { border-color: var(--clr-primary); background: rgba(155,93,229,0.1); transform: scale(1.1); box-shadow: 0 0 30px var(--clr-primary-glow); }
+    .step-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: var(--space-2); }
+    .step-card p { font-size: 0.85rem; color: var(--clr-text-2); }
+
+    /* Trends Preview */
+    .trends-section { padding: var(--space-24) 0; overflow: hidden; }
+
+    .trends-marquee {
+      display: flex;
+      gap: var(--space-4);
+      width: max-content;
+      animation: marqueeScroll 25s linear infinite;
+    }
+    .trends-marquee:hover { animation-play-state: paused; }
+    @keyframes marqueeScroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    .trend-pill {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 14px 24px;
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: var(--transition-fast);
+    }
+    .trend-pill:hover { border-color: var(--clr-primary); background: rgba(155,93,229,0.1); }
+    .trend-pill-emoji { font-size: 1.3rem; }
+    .trend-pill-name { font-weight: 600; font-size: 0.9rem; }
+    .trend-pill-badge { padding: 3px 10px; background: rgba(155,93,229,0.15); color: var(--clr-primary-light); border-radius: var(--radius-full); font-size: 0.72rem; font-weight: 600; }
+
+    /* CTA Banner */
+    .cta-section { padding: var(--space-24) 0; }
+    .cta-banner {
+      background: var(--grad-primary);
+      border-radius: var(--radius-xl);
+      padding: var(--space-16) var(--space-12);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .cta-banner h2 { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; color: var(--clr-white); margin-bottom: var(--space-4); position: relative; }
+    .cta-banner p { color: rgba(255,255,255,0.8); font-size: 1.1rem; margin-bottom: var(--space-8); position: relative; max-width: 500px; margin-left: auto; margin-right: auto; margin-bottom: var(--space-8); }
+    .cta-banner .btn-accent { position: relative; font-size: 1.05rem; }
+
+    /* Platforms Section */
+    .platforms-section { padding: var(--space-16) 0; }
+    .platform-logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-8);
+      flex-wrap: wrap;
+    }
+    .platform-logo-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 12px 24px;
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-md);
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--clr-text-2);
+      transition: var(--transition-base);
+    }
+    .platform-logo-item:hover { color: var(--clr-text); border-color: var(--clr-border-2); transform: translateY(-2px); }
+    .platform-logo-item .p-emoji { font-size: 1.2rem; }
+
+    /* Footer */
+    .footer {
+      padding: var(--space-12) 0;
+      border-top: 1px solid var(--clr-border);
+      margin-top: var(--space-8);
+    }
+    .footer-content { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); flex-wrap: wrap; }
+    .footer-brand { display: flex; align-items: center; gap: var(--space-3); }
+    .footer-brand-name { font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; }
+    .footer-links { display: flex; gap: var(--space-4); }
+    .footer-links a { font-size: 0.875rem; color: var(--clr-text-3); transition: color 0.2s; }
+    .footer-links a:hover { color: var(--clr-primary); }
+    .footer-copy { font-size: 0.8rem; color: var(--clr-text-3); }
+
+    /* Nav hamburger */
+    .nav-mobile-toggle { display: none; flex-direction: column; gap: 4px; padding: 8px; cursor: pointer; }
+    .nav-mobile-toggle span { display: block; width: 22px; height: 2px; background: var(--clr-text); border-radius: 2px; transition: var(--transition-base); }
+    @media (max-width: 768px) { .nav-mobile-toggle { display: flex; } }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <div class="container-wide" style="display:flex; align-items:center; width:100%; gap:24px;">
+      <a href="index.html" class="nav-logo">
+        <div class="logo-icon">👗</div>
+        <span>Avarion</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How it Works</a>
+        <a href="#trends">Trends</a>
+        <a href="pages/studio.html">Studio</a>
+      </div>
+      <div class="nav-actions" style="margin-left:auto;">
+        <a href="pages/studio.html" class="btn btn-secondary btn-sm">Open Studio</a>
+        <a href="pages/onboarding.html" class="btn btn-primary btn-sm">Get Styled ✨</a>
+      </div>
+      <div class="nav-mobile-toggle" id="mobileToggle">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-bg">
+      <div class="hero-orb hero-orb-1"></div>
+      <div class="hero-orb hero-orb-2"></div>
+      <div class="hero-orb hero-orb-3"></div>
+      <div class="hero-grid-bg"></div>
+    </div>
+
+    <div class="container-wide" style="position:relative; z-index:2; width:100%;">
+      <div class="hero-content anim-fade-in-up">
+        <div class="hero-eyebrow">
+          <span class="badge badge-primary">✨ AI-Powered Styling</span>
+          <span class="badge badge-teal">🆕 Free to Use</span>
+        </div>
+
+        <h1 class="hero-title">
+          Your Virtual<br>
+          <em>Style Studio</em><br>
+          Awaits.
+        </h1>
+
+        <p class="hero-subtitle">
+          Create your personalized 3D avatar, try on thousands of outfits, get AI-curated looks for any event, and shop directly on Amazon, Flipkart & Myntra — all in one place.
+        </p>
+
+        <div class="hero-actions">
+          <a href="pages/onboarding.html" class="btn btn-primary btn-lg" id="getStartedBtn">
+            <span>Start Your Makeover</span>
+            <span>→</span>
+          </a>
+          <a href="pages/studio.html" class="btn btn-secondary btn-lg">
+            <span>👁️ Preview Studio</span>
+          </a>
+        </div>
+
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="stat-num">10K+</div>
+            <div class="stat-label">Outfit Combinations</div>
+          </div>
+          <div class="hero-stat">
+            <div class="stat-num">5+</div>
+            <div class="stat-label">E-Commerce Platforms</div>
+          </div>
+          <div class="hero-stat">
+            <div class="stat-num">AI</div>
+            <div class="stat-label">Powered by Gemini</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Visual / Mannequin Preview -->
+      <div class="hero-visual anim-fade-in delay-300">
+        <div class="mannequin-preview">
+          <div class="mannequin-card">
+            <div class="mannequin-figure" id="heroMannequinDisplay">
+              <canvas id="heroThreeCanvas" style="width: 100%; height: 100%; outline: none; border-radius: var(--radius-xl); display: block;"></canvas>
+            </div>
+            <div class="mannequin-tags">
+              <div class="mannequin-tag top-left">
+                <div class="tag-dot" style="background:#9B5DE5;"></div>
+                <span>👗 Satin Blouse</span>
+              </div>
+              <div class="mannequin-tag top-right">
+                <div class="tag-dot" style="background:#F15BB5;"></div>
+                <span>💄 Golden Glow</span>
+              </div>
+              <div class="mannequin-tag bottom-left">
+                <div class="tag-dot" style="background:#FEE440;"></div>
+                <span>👠 Block Heels</span>
+              </div>
+              <div class="mannequin-tag bottom-right">
+                <div class="tag-dot" style="background:#00BBF9;"></div>
+                <span>👜 Mini Clutch</span>
+              </div>
+            </div>
+            <div class="ai-badge-floating">
+              <div class="waveform">
+                <div class="waveform-bar"></div>
+                <div class="waveform-bar"></div>
+                <div class="waveform-bar"></div>
+                <div class="waveform-bar"></div>
+                <div class="waveform-bar"></div>
+              </div>
+              AI Styling...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Platforms -->
+  <section class="platforms-section">
+    <div class="container">
+      <p class="text-center text-faint caption" style="margin-bottom: 24px; letter-spacing: 0.1em;">SHOP DIRECTLY ON</p>
+      <div class="platform-logos">
+        <div class="platform-logo-item"><span class="p-emoji">🛒</span> Amazon</div>
+        <div class="platform-logo-item"><span class="p-emoji">🛍️</span> Flipkart</div>
+        <div class="platform-logo-item"><span class="p-emoji">👗</span> Myntra</div>
+        <div class="platform-logo-item"><span class="p-emoji">✨</span> AJIO</div>
+        <div class="platform-logo-item"><span class="p-emoji">🌍</span> ASOS</div>
+        <div class="platform-logo-item"><span class="p-emoji">💫</span> + More</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-eyebrow">
+          <span class="badge badge-primary">Everything You Need</span>
+        </div>
+        <h2 class="heading-1" style="margin-bottom: 16px;">Fashion Intelligence<br><span class="text-gradient">Reimagined</span></h2>
+        <p class="body-lg text-muted">From personalized avatar creation to one-click shopping — we've built the ultimate AI fashion companion for everyone.</p>
+      </div>
+
+      <div class="feature-grid stagger">
+        <div class="feature-card reveal">
+          <div class="feature-icon feature-icon-1">🧍</div>
+          <h3>3D Avatar Creation</h3>
+          <p>Enter your body measurements or upload photos to generate a personalized 3D mannequin that looks just like you.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon feature-icon-2">👗</div>
+          <h3>Virtual Try-On</h3>
+          <p>Instantly try on thousands of clothing combinations — tops, bottoms, dresses, shoes, and accessories — all in real-time 3D.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon feature-icon-3">🤖</div>
+          <h3>AI Style Recommendations</h3>
+          <p>Tell us your event, budget, and style — our Gemini AI will curate a complete makeover tailored specifically to you.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon feature-icon-4">💄</div>
+          <h3>Complete Makeover</h3>
+          <p>Beyond clothes — get AI-curated makeup looks, footwear picks, jewelry, bags, and accessories for a head-to-toe transformation.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon feature-icon-5">🌏</div>
+          <h3>Global Trend Feed</h3>
+          <p>Stay ahead with AI-powered trend analysis. Discover what's hot in fashion worldwide and how to make it your own.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon feature-icon-6">🛒</div>
+          <h3>1-Click Shopping</h3>
+          <p>Finalize your look and instantly shop your entire outfit across Amazon, Flipkart, Myntra, AJIO, and ASOS — automatically.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-eyebrow">
+          <span class="badge badge-accent">Simple &amp; Powerful</span>
+        </div>
+        <h2 class="heading-1" style="margin-bottom: 16px;">From Zero to<br><span class="text-golden">Style Icon</span> in 4 Steps</h2>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card reveal">
+          <div class="step-number">📋</div>
+          <h3>Tell Us About You</h3>
+          <p>Share your event, style preferences, body measurements, and budget through our quick wizard.</p>
+        </div>
+        <div class="step-card reveal delay-100">
+          <div class="step-number">🧍</div>
+          <h3>Build Your Avatar</h3>
+          <p>We generate a personalized 3D mannequin based on your unique body shape and proportions.</p>
+        </div>
+        <div class="step-card reveal delay-200">
+          <div class="step-number">✨</div>
+          <h3>AI Styles You</h3>
+          <p>Our AI creates a complete look — outfit, makeup, accessories — perfect for your occasion.</p>
+        </div>
+        <div class="step-card reveal delay-300">
+          <div class="step-number">🛒</div>
+          <h3>Shop &amp; Slay</h3>
+          <p>Love your look? One click sends you directly to buy every piece from the best platforms.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trends Marquee -->
+  <section class="trends-section" id="trends">
+    <div class="container" style="margin-bottom: 32px;">
+      <div class="section-header reveal">
+        <span class="badge badge-teal" style="margin-bottom: 16px; display: inline-flex;">🔥 What's Trending Now</span>
+        <h2 class="heading-1"><span class="text-gradient">Fashion Forward</span><br>Trend Intelligence</h2>
+      </div>
+    </div>
+    <div style="overflow: hidden; padding: 8px 0;">
+      <div class="trends-marquee" id="trendsMarquee">
+        <!-- duplicated for seamless loop -->
+        <div class="trend-pill"><span class="trend-pill-emoji">🤍</span><span class="trend-pill-name">Quiet Luxury</span><span class="trend-pill-badge">TRENDING</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">💜</span><span class="trend-pill-name">Y2K Revival</span><span class="trend-pill-badge">HOT</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🌈</span><span class="trend-pill-name">Dopamine Dressing</span><span class="trend-pill-badge">VIRAL</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🌸</span><span class="trend-pill-name">Cottagecore</span><span class="trend-pill-badge">RISING</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">⚡</span><span class="trend-pill-name">Cyber Punk Edge</span><span class="trend-pill-badge">NEW</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🍂</span><span class="trend-pill-name">Boho Chic</span><span class="trend-pill-badge">CLASSIC</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🖤</span><span class="trend-pill-name">Dark Academia</span><span class="trend-pill-badge">POPULAR</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">☀️</span><span class="trend-pill-name">Resort Luxe</span><span class="trend-pill-badge">SUMMER</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🤍</span><span class="trend-pill-name">Quiet Luxury</span><span class="trend-pill-badge">TRENDING</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">💜</span><span class="trend-pill-name">Y2K Revival</span><span class="trend-pill-badge">HOT</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🌈</span><span class="trend-pill-name">Dopamine Dressing</span><span class="trend-pill-badge">VIRAL</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🌸</span><span class="trend-pill-name">Cottagecore</span><span class="trend-pill-badge">RISING</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">⚡</span><span class="trend-pill-name">Cyber Punk Edge</span><span class="trend-pill-badge">NEW</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🍂</span><span class="trend-pill-name">Boho Chic</span><span class="trend-pill-badge">CLASSIC</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">🖤</span><span class="trend-pill-name">Dark Academia</span><span class="trend-pill-badge">POPULAR</span></div>
+        <div class="trend-pill"><span class="trend-pill-emoji">☀️</span><span class="trend-pill-name">Resort Luxe</span><span class="trend-pill-badge">SUMMER</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <div class="container">
+      <div class="cta-banner reveal">
+        <h2>Ready for Your Fashion Transformation?</h2>
+        <p>Join thousands of style explorers. It's free, it's fun, and your dream wardrobe is just a click away.</p>
+        <a href="pages/onboarding.html" class="btn btn-accent btn-lg">
+          Start Free — No Sign Up Needed ✨
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <div class="logo-icon" style="width:30px; height:30px; border-radius:8px; background:var(--grad-primary); display:flex; align-items:center; justify-content:center;">👗</div>
+          <span class="footer-brand-name">Avarion</span>
+          <span class="text-faint body-sm">AI Fashion Studio</span>
+        </div>
+        <div class="footer-links">
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How it Works</a>
+          <a href="pages/studio.html">Studio</a>
+          <a href="#trends">Trends</a>
+        </div>
+        <div class="footer-copy">
+          © 2026 Avarion. Built with ❤️ by students.
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <span id="toastIcon">✅</span>
+    <span id="toastMsg">Welcome to Avarion!</span>
+  </div>
+
+  <script>
+    // Navbar scroll effect
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 20);
+    });
+
+    // Scroll reveal
+    const reveals = document.querySelectorAll('.reveal');
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    reveals.forEach(el => revealObserver.observe(el));
+
+    // Trend pills click binding helper
+    function bindTrendClicks() {
+      document.querySelectorAll('.trend-pill').forEach(pill => {
+        // remove old listeners (if any) by cloning
+        const newPill = pill.cloneNode(true);
+        pill.parentNode.replaceChild(newPill, pill);
+        newPill.addEventListener('click', () => {
+          const name = newPill.querySelector('.trend-pill-name').textContent;
+          sessionStorage.setItem('selectedTrend', name);
+          window.location.href = 'pages/onboarding.html?trend=' + encodeURIComponent(name);
+        });
+      });
+    }
+
+    bindTrendClicks();
+
+    // Fetch dynamic trends from API
+    fetch('api/trends', { headers: typeof getApiKeyHeader === 'function' ? getApiKeyHeader() : {} })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const marquee = document.getElementById('trendsMarquee');
+          const emojiMap = {
+            'Quiet Luxury': '🤍',
+            'Y2K Revival': '💜',
+            'Dopamine Dressing': '🌈',
+            'Cottagecore': '🌸',
+            'Cyber Edge': '⚡',
+            'Boho Chic': '🍂'
+          };
+          const vibeMap = {
+            'Refined': 'TRENDING',
+            'Playful': 'HOT',
+            'Joyful': 'VIRAL',
+            'Dreamy': 'RISING',
+            'Edgy': 'NEW',
+            'Free': 'CLASSIC'
+          };
+          
+          const pillsHTML = data.map(t => {
+            const emoji = emojiMap[t.name] || '✨';
+            const badge = vibeMap[t.vibe] || 'HOT';
+            return `
+              <div class="trend-pill">
+                <span class="trend-pill-emoji">${emoji}</span>
+                <span class="trend-pill-name">${t.name}</span>
+                <span class="trend-pill-badge">${badge}</span>
+              </div>
+            `;
+          }).join('');
+          
+          marquee.innerHTML = pillsHTML + pillsHTML;
+          bindTrendClicks();
+        }
+      })
+      .catch(err => console.warn('Dynamic trends unavailable:', err));
+
+    // CTA ripple
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple-effect';
+        const rect = this.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        ripple.style.cssText = `width:${size}px; height:${size}px; left:${e.clientX-rect.left-size/2}px; top:${e.clientY-rect.top-size/2}px;`;
+        this.style.position = 'relative';
+        this.style.overflow = 'hidden';
+        this.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 700);
+      });
+    });
+
+    // Show welcome toast after short delay
+    setTimeout(() => {
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 4000);
+    }, 1500);
+
+    // ── Three.js Hero 3D Mannequin Setup ───────────────────────
+    let heroScene, heroCamera, heroRenderer, heroMannequinGroup;
+    let heroBodyMaterial, heroCharGroup;
+
+    function initHero3DScene() {
+      const container = document.getElementById('heroMannequinDisplay');
+      if (!container) return;
+      const width = container.clientWidth || 320;
+      const height = container.clientHeight || 380;
+
+      // Renderer
+      heroRenderer = new THREE.WebGLRenderer({ canvas: document.getElementById('heroThreeCanvas'), alpha: true, antialias: true });
+      heroRenderer.setSize(width, height);
+      heroRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      // Scene
+      heroScene = new THREE.Scene();
+
+      // Camera
+      heroCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      heroCamera.position.set(0, 1.8, 8.5);
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+      heroScene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.7);
+      keyLight.position.set(4, 8, 5);
+      heroScene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+      fillLight.position.set(-4, 4, 3);
+      heroScene.add(fillLight);
+
+      const rimLight = new THREE.PointLight(0xffffff, 0.65, 10);
+      rimLight.position.set(0, 4, -4);
+      heroScene.add(rimLight);
+
+      // Mannequin Group
+      heroMannequinGroup = new THREE.Group();
+      heroScene.add(heroMannequinGroup);
+
+      // Materials
+      heroBodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0xEBBF8F, // champagne/light skin tone
+        roughness: 0.35,
+        metalness: 0.05
+      });
+
+      const topMaterial = new THREE.MeshStandardMaterial({
+        color: 0xC9A96E, // Champagne Satin Blouse
+        roughness: 0.2,
+        metalness: 0.1
+      });
+
+      const bottomMaterial = new THREE.MeshStandardMaterial({
+        color: 0x16213E, // Midnight Navy Palazzo Pants
+        roughness: 0.3,
+        metalness: 0.05
+      });
+
+      const shoesMaterial = new THREE.MeshStandardMaterial({
+        color: 0xC9A96E, // Champagne blocks
+        roughness: 0.3,
+        metalness: 0.1
+      });
+
+      const hairMaterial = new THREE.MeshStandardMaterial({
+        color: 0x312117, // Dark hair
+        roughness: 0.4,
+        metalness: 0.1
+      });
+
+      // Character Group
+      heroCharGroup = new THREE.Group();
+      heroMannequinGroup.add(heroCharGroup);
+
+      // Build Mannequin structure
+      // Head
+      const headGeom = new THREE.SphereGeometry(0.38, 32, 32);
+      const headMesh = new THREE.Mesh(headGeom, heroBodyMaterial);
+      headMesh.position.set(0, 3.3, 0);
+      heroCharGroup.add(headMesh);
+
+      // Hair
+      const hairGroup = new THREE.Group();
+      headMesh.add(hairGroup);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.395, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2.1), hairMaterial);
+      cap.position.set(0, 0.05, 0);
+      cap.rotation.x = -0.2;
+      hairGroup.add(cap);
+      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), hairMaterial);
+      bun.position.set(0, 0.38, -0.15);
+      hairGroup.add(bun);
+      const lockL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.9, 12), hairMaterial);
+      lockL.position.set(-0.35, -0.3, 0.1);
+      lockL.rotation.z = -0.1;
+      hairGroup.add(lockL);
+      const lockR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.03, 0.9, 12), hairMaterial);
+      lockR.position.set(0.35, -0.3, 0.1);
+      lockR.rotation.z = 0.1;
+      hairGroup.add(lockR);
+
+      // Fallback minimalist face
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#EBBF8F';
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.strokeStyle = '#2d1e18';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(44, 60, 8, 0.1 * Math.PI, 0.9 * Math.PI, false);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(84, 60, 8, 0.1 * Math.PI, 0.9 * Math.PI, false);
+      ctx.stroke();
+      ctx.fillStyle = '#ff6b81';
+      ctx.beginPath();
+      ctx.arc(64, 80, 5, 0, Math.PI);
+      ctx.fill();
+
+      const faceTexture = new THREE.CanvasTexture(canvas);
+      const facePlane = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.55), new THREE.MeshBasicMaterial({ map: faceTexture, transparent: true, side: THREE.DoubleSide }));
+      facePlane.position.set(0, 0, 0.381);
+      headMesh.add(facePlane);
+
+      // Neck
+      const neckGeom = new THREE.CylinderGeometry(0.12, 0.14, 0.25, 16);
+      const neckMesh = new THREE.Mesh(neckGeom, heroBodyMaterial);
+      neckMesh.position.set(0, 3.0, 0);
+      heroCharGroup.add(neckMesh);
+
+      // Torso
+      const chestMesh = new THREE.Mesh(new THREE.SphereGeometry(0.44, 32, 16), heroBodyMaterial);
+      chestMesh.position.set(0, 2.65, 0);
+      chestMesh.scale.set(1.1, 0.65, 0.85);
+      heroCharGroup.add(chestMesh);
+
+      const waistMesh = new THREE.Mesh(new THREE.SphereGeometry(0.41, 32, 16), heroBodyMaterial);
+      waistMesh.position.set(0, 2.15, 0);
+      waistMesh.scale.set(0.75, 0.65, 0.85);
+      heroCharGroup.add(waistMesh);
+
+      const hipsMesh = new THREE.Mesh(new THREE.SphereGeometry(0.47, 32, 16), heroBodyMaterial);
+      hipsMesh.position.set(0, 1.65, 0);
+      hipsMesh.scale.set(1.15, 0.65, 0.85);
+      heroCharGroup.add(hipsMesh);
+
+      // Draping Blouse (shirt body overlay)
+      const topShirt = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.44, 1.0, 32), topMaterial);
+      topShirt.position.set(0, 2.45, 0);
+      heroCharGroup.add(topShirt);
+
+      // Sleeves
+      const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.45, 16), topMaterial);
+      sleeveL.position.set(-0.62, 2.5, 0);
+      sleeveL.rotation.z = 0.22;
+      heroCharGroup.add(sleeveL);
+
+      const sleeveR = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.45, 16), topMaterial);
+      sleeveR.position.set(0.62, 2.5, 0);
+      sleeveR.rotation.z = -0.22;
+      heroCharGroup.add(sleeveR);
+
+      // Palazzo Pants (Wide leg overlay)
+      const pantsL = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.45, 16), bottomMaterial);
+      pantsL.position.set(-0.24, 0.85, 0.02);
+      pantsL.rotation.z = -0.05;
+      heroCharGroup.add(pantsL);
+
+      const pantsR = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.45, 16), bottomMaterial);
+      pantsR.position.set(0.24, 0.85, 0.02);
+      pantsR.rotation.z = 0.05;
+      heroCharGroup.add(pantsR);
+
+      // Left Shoulder & Arm
+      const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), heroBodyMaterial);
+      shoulderL.position.set(-0.57, 2.65, 0);
+      heroCharGroup.add(shoulderL);
+
+      const armLGroup = new THREE.Group();
+      armLGroup.position.copy(shoulderL.position);
+      heroCharGroup.add(armLGroup);
+
+      const upperArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.6, 16), heroBodyMaterial);
+      upperArmL.position.set(0, -0.3, 0);
+      armLGroup.add(upperArmL);
+
+      const elbowLGroup = new THREE.Group();
+      elbowLGroup.position.set(0, -0.6, 0);
+      armLGroup.add(elbowLGroup);
+
+      const jointElbowL = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), heroBodyMaterial);
+      elbowLGroup.add(jointElbowL);
+
+      const lowerArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 16), heroBodyMaterial);
+      lowerArmL.position.set(0, -0.275, 0);
+      elbowLGroup.add(lowerArmL);
+
+      const handL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), heroBodyMaterial);
+      handL.position.set(0, -0.55, 0);
+      elbowLGroup.add(handL);
+
+      armLGroup.rotation.z = 0.22;
+      elbowLGroup.rotation.z = 0.15;
+
+      // Right Shoulder & Arm
+      const shoulderR = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), heroBodyMaterial);
+      shoulderR.position.set(0.57, 2.65, 0);
+      heroCharGroup.add(shoulderR);
+
+      const armRGroup = new THREE.Group();
+      armRGroup.position.copy(shoulderR.position);
+      heroCharGroup.add(armRGroup);
+
+      const upperArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.6, 16), heroBodyMaterial);
+      upperArmR.position.set(0, -0.3, 0);
+      armRGroup.add(upperArmR);
+
+      const elbowRGroup = new THREE.Group();
+      elbowRGroup.position.set(0, -0.6, 0);
+      armRGroup.add(elbowRGroup);
+
+      const jointElbowR = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), heroBodyMaterial);
+      elbowRGroup.add(jointElbowR);
+
+      const lowerArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 16), heroBodyMaterial);
+      lowerArmR.position.set(0, -0.275, 0);
+      elbowRGroup.add(lowerArmR);
+
+      const handR = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), heroBodyMaterial);
+      handR.position.set(0, -0.55, 0);
+      elbowRGroup.add(handR);
+
+      armRGroup.rotation.z = -0.22;
+      elbowRGroup.rotation.z = -0.15;
+
+      // Shoes
+      const footL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.13, 0.31), shoesMaterial);
+      footL.position.set(-0.24, 0.05, 0.06);
+      heroCharGroup.add(footL);
+
+      const footR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.13, 0.31), shoesMaterial);
+      footR.position.set(0.24, 0.05, 0.06);
+      heroCharGroup.add(footR);
+
+      // Center character group
+      heroCharGroup.position.set(0, -1.8, 0);
+
+      // Interaction
+      let isDragging = false;
+      let previousMousePosition = { x: 0 };
+      const canvasEl = document.getElementById('heroThreeCanvas');
+      
+      canvasEl.addEventListener('mousedown', e => { isDragging = true; previousMousePosition.x = e.offsetX; });
+      canvasEl.addEventListener('mousemove', e => {
+        if (!isDragging || !heroMannequinGroup) return;
+        const deltaX = e.offsetX - previousMousePosition.x;
+        heroMannequinGroup.rotation.y += deltaX * 0.008;
+        previousMousePosition.x = e.offsetX;
+      });
+      window.addEventListener('mouseup', () => { isDragging = false; });
+
+      // Auto-rotation
+      function animate() {
+        requestAnimationFrame(animate);
+        if (!isDragging && heroMannequinGroup) {
+          heroMannequinGroup.rotation.y += 0.005;
+        }
+        heroRenderer.render(heroScene, heroCamera);
+      }
+      animate();
+
+      // Resize
+      window.addEventListener('resize', () => {
+        const w = container.clientWidth || 320;
+        const h = container.clientHeight || 380;
+        heroCamera.aspect = w / h;
+        heroCamera.updateProjectionMatrix();
+        heroRenderer.setSize(w, h);
+      });
+    }
+
+    // Run hero scene initialization
+    initHero3DScene();
+  </script>
+  <script src="js/settings.js"></script>
+</body>
+</html>
