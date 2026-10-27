@@ -816,6 +816,18 @@
   }
 
   function handlePhoto(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Please select an image file (JPG, PNG, or WEBP)');
+      return;
+    }
+    userData.photoFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      userData.photoDataUrl = e.target.result;
+      sessionStorage.setItem('avarionUser', JSON.stringify(userData));
+      localStorage.setItem('avarionUser', JSON.stringify(userData));
+    };
+    reader.readAsDataURL(file);
     const reader = new FileReader();
     reader.onload = e => {
       userData.photoDataUrl = e.target.result;

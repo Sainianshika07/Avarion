@@ -575,6 +575,7 @@
       <button type="button" id="btnMode3D" class="mode-btn" style="background:transparent; color:var(--clr-text-2); font-weight:600; border:none; border-radius:var(--radius-full); padding:5px 14px; font-size:0.75rem; cursor:pointer; transition:all 0.2s;">3D View</button>
     </div>
     <div class="studio-actions">
+      <button class="btn btn-secondary btn-sm" id="btnOpenPhotoModal" title="Take a photo or upload to update your avatar"><span>📸</span> Photo Avatar</button>
       <button class="btn btn-secondary btn-sm" id="regenBtn" title="Ask AI for new recommendations">
         <span>🤖</span> Re-style with AI
       </button>
@@ -659,6 +660,8 @@
         <div class="paperdoll-silhouette" id="paperdollWrapper" style="width: 280px; height: 500px; position: relative; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.5)); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);">
           <!-- Layer 1: Body Silhouette SVG -->
           <svg id="svgBodyLayer" viewBox="0 0 280 500" style="width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1;"></svg>
+          <!-- Layer 1b: User Real Face Cutout Overlay -->
+          <div id="avatarFacePhotoOverlay" style="position:absolute; top:42px; left:114px; width:52px; height:66px; border-radius:50%; overflow:hidden; z-index:1; display:none; pointer-events:none; box-shadow:0 2px 6px rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15);"><img id="userAvatarPhotoImg" src="" style="width:100%; height:100%; object-fit:cover;" alt="User Face" /></div>
           <!-- Layer 2: Cosmetics / Makeup Canvas Overlay -->
           <canvas id="face2DCanvas" width="280" height="500" style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none;"></canvas>
           <!-- Layer 3: Undergarments / Bottoms SVG -->
@@ -800,7 +803,7 @@
 
 <script>
 // ── Load User Data ──────────────────────────────────────────
-const userData = JSON.parse(sessionStorage.getItem('avarionUser') || '{}');
+const userData = JSON.parse(sessionStorage.getItem('avarionUser') || localStorage.getItem('avarionUser') || '{}');
 const gender = userData.gender || 'Female';
 const event = userData.event || 'Your Event';
 
@@ -2255,6 +2258,243 @@ init3DScene();
 loadAIRecommendations();
 loadTrends();
 </script>
-<script src="../js/settings.js"></script>
+<script src="../js/settings.js">
+
+// ── Photo Avatar Integration (Camera & Upload) ────────────
+let webcamStream = null;
+let currentExtractedPhoto = null;
+
+function applyPhotoToAvatar(photoDataUrl, skinTone, bodyType) {
+  if (!photoDataUrl) return;
+  userData.photoDataUrl = photoDataUrl;
+  if (skinTone) userData.skinTone = skinTone;
+  if (bodyType) userData.bodyType = bodyType;
+
+  sessionStorage.setItem('avarionUser', JSON.stringify(userData));
+
+  // 1. Update 2D Avatar Overlay
+  const overlay = document.getElementById('avatarFacePhotoOverlay');
+  const img = document.getElementById('userAvatarPhotoImg');
+  if (overlay && img) {
+    img.src = photoDataUrl;
+    overlay.style.display = 'block';
+  }
+
+  // 2. Re-render 2D body silhouette with detected or chosen skinTone
+  const detectedSkinColor = skinToneColors[userData.skinTone || 'Light'] || '#EBBF8F';
+  render2DBody(userData.bodyType || 'Hourglass', detectedSkinColor);
+
+  // 3. Re-render makeup on face2DCanvas
+  render2DMakeup();
+
+  // 4. Update 3D avatar head if 3D scene exists
+  if (typeof headMesh !== 'undefined' && headMesh && typeof createCircularFaceTexture === 'function') {
+    createCircularFaceTexture(photoDataUrl, detectedSkinColor, (texture) => {
+      if (facePlaneMesh) headMesh.remove(facePlaneMesh);
+      const faceGeom = new THREE.PlaneGeometry(0.55, 0.55);
+      const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+      facePlaneMesh = new THREE.Mesh(faceGeom, faceMat);
+      facePlaneMesh.position.set(0, 0, 0.381);
+      headMesh.add(facePlaneMesh);
+    });
+  }
+
+  showToast('✨ Avatar personalized with your photo!', 'success');
+}
+
+// Initial check on load: If user already uploaded photo in onboarding, apply it
+if (userData && userData.photoDataUrl) {
+  setTimeout(() => {
+    applyPhotoToAvatar(userData.photoDataUrl, userData.skinTone, userData.bodyType);
+  }, 100);
+}
+
+// Modal opening and controls
+const modal = document.getElementById('photoAvatarModal');
+const btnOpen = document.getElementById('btnOpenPhotoModal');
+const btnClose = document.getElementById('btnClosePhotoModal');
+const btnCancel = document.getElementById('btnCancelPhoto');
+const tabCamera = document.getElementById('tabCameraBtn');
+const tabUpload = document.getElementById('tabUploadBtn');
+const cameraBox = document.getElementById('cameraContainer');
+const uploadBox = document.getElementById('uploadContainer');
+const video = document.getElementById('webcamVideo');
+const snapBtn = document.getElementById('btnCapturePhoto');
+const dropZone = document.getElementById('modalDropZone');
+const fileInput = document.getElementById('modalPhotoFileInput');
+const analysisBox = document.getElementById('photoAnalysisState');
+const analysisText = document.getElementById('analysisStateText');
+const previewSec = document.getElementById('photoPreviewSection');
+const previewImg = document.getElementById('modalPreviewImg');
+const toneTag = document.getElementById('modalToneTag');
+const applyBtn = document.getElementById('btnApplyAvatarPhoto');
+
+function stopWebcam() {
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(t => t.stop());
+    webcamStream = null;
+  }
+}
+
+if (btnOpen && modal) {
+  btnOpen.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    previewSec.style.display = 'none';
+    applyBtn.style.display = 'none';
+  });
+
+  const closeModal = () => {
+    stopWebcam();
+    modal.style.display = 'none';
+  };
+
+  btnClose.addEventListener('click', closeModal);
+  btnCancel.addEventListener('click', closeModal);
+
+  // Tab switching
+  tabCamera.addEventListener('click', async () => {
+    tabCamera.className = 'btn btn-primary btn-sm';
+    tabUpload.className = 'btn btn-secondary btn-sm';
+    uploadBox.style.display = 'none';
+    cameraBox.style.display = 'flex';
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 480, facingMode: 'user' } });
+      video.srcObject = webcamStream;
+    } catch (err) {
+      showToast('Camera permission denied or camera not found. Please upload a file.', 'error');
+      tabUpload.click();
+    }
+  });
+
+  tabUpload.addEventListener('click', () => {
+    stopWebcam();
+    tabUpload.className = 'btn btn-primary btn-sm';
+    tabCamera.className = 'btn btn-secondary btn-sm';
+    cameraBox.style.display = 'none';
+    uploadBox.style.display = 'flex';
+  });
+
+  // Camera snap
+  snapBtn.addEventListener('click', () => {
+    const snapCanvas = document.createElement('canvas');
+    snapCanvas.width = 400;
+    snapCanvas.height = 400;
+    const ctx = snapCanvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, 400, 400);
+    const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.85);
+    stopWebcam();
+    cameraBox.style.display = 'none';
+    processPhotoForAvatar(dataUrl);
+  });
+
+  // File upload click & drop
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => processPhotoForAvatar(evt.target.result);
+      reader.readAsDataURL(file);
+    }
+  });
+
+  async function processPhotoForAvatar(dataUrl) {
+    currentExtractedPhoto = dataUrl;
+    analysisBox.style.display = 'block';
+    analysisText.textContent = 'Extracting facial tone and body silhouette...';
+
+    // Client-side quick sampling of skin undertone from center-top of image
+    const tempImg = new Image();
+    tempImg.crossOrigin = 'anonymous';
+    tempImg.onload = async () => {
+      const c = document.createElement('canvas');
+      c.width = 50; c.height = 50;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(tempImg, tempImg.width*0.4, tempImg.height*0.3, tempImg.width*0.2, tempImg.height*0.2, 0, 0, 50, 50);
+      const px = ctx.getImageData(25, 25, 1, 1).data;
+      const brightness = (px[0]*299 + px[1]*587 + px[2]*114)/1000;
+
+      let detectedTone = 'Medium';
+      if (brightness > 210) detectedTone = 'Fair';
+      else if (brightness > 175) detectedTone = 'Light';
+      else if (brightness > 130) detectedTone = 'Medium';
+      else if (brightness > 90) detectedTone = 'Tan';
+      else if (brightness > 55) detectedTone = 'Dark';
+      else detectedTone = 'Deep';
+
+      const detectedShape = userData.bodyType || 'Hourglass';
+
+      analysisBox.style.display = 'none';
+      previewSec.style.display = 'flex';
+      previewImg.src = dataUrl;
+      toneTag.textContent = 'Tone: ' + detectedTone + ' | Silhouette: ' + detectedShape;
+      applyBtn.style.display = 'inline-block';
+
+      applyBtn.onclick = () => {
+        applyPhotoToAvatar(dataUrl, detectedTone, detectedShape);
+        closeModal();
+      };
+    };
+    tempImg.src = dataUrl;
+  }
+}
+
+</script>
+
+<!-- Photo-based Avatar Modal (Camera + Upload) -->
+<div id="photoAvatarModal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--clr-bg-2, #15161A); border:1px solid var(--clr-border, rgba(255,255,255,0.12)); border-radius:var(--radius-xl, 16px); width:100%; max-width:480px; padding:24px; box-shadow:0 24px 64px rgba(0,0,0,0.6); position:relative;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 class="heading-3" style="margin:0; display:flex; align-items:center; gap:8px;">📸 Create Photo Avatar</h3>
+      <button type="button" id="btnClosePhotoModal" style="background:transparent; border:none; color:var(--clr-text-2); font-size:1.4rem; cursor:pointer;">&times;</button>
+    </div>
+    <p class="body-sm text-muted" style="margin-bottom:16px;">Upload a selfie or snap a photo with your webcam. We isolate your face & extract skin undertone to shape your personalized 2D avatar.</p>
+
+    <!-- Modal Tabs: Camera vs Upload -->
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <button type="button" id="tabCameraBtn" class="btn btn-secondary btn-sm" style="flex:1;">📷 Use Camera</button>
+      <button type="button" id="tabUploadBtn" class="btn btn-primary btn-sm" style="flex:1;">📁 Upload File</button>
+    </div>
+
+    <!-- Camera View Container -->
+    <div id="cameraContainer" style="display:none; flex-direction:column; align-items:center; gap:12px; margin-bottom:16px;">
+      <div style="width:100%; height:260px; background:#000; border-radius:12px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center;">
+        <video id="webcamVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+        <div style="position:absolute; width:130px; height:160px; border:2px dashed rgba(255,255,255,0.6); border-radius:50%; pointer-events:none;"></div>
+      </div>
+      <button type="button" id="btnCapturePhoto" class="btn btn-primary" style="width:100%;">📸 Snap Photo</button>
+    </div>
+
+    <!-- Upload View Container -->
+    <div id="uploadContainer" style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+      <div id="modalDropZone" style="border:2px dashed var(--clr-border); border-radius:12px; padding:32px 16px; text-align:center; cursor:pointer; background:rgba(255,255,255,0.02);">
+        <div style="font-size:2.5rem; margin-bottom:8px;">🖼️</div>
+        <p class="body-sm" style="font-weight:600; margin-bottom:4px;">Drag & drop photo or browse</p>
+        <p class="caption text-muted">PNG, JPG, WEBP (Face clearly visible)</p>
+        <input type="file" id="modalPhotoFileInput" accept="image/*" style="display:none;" />
+      </div>
+    </div>
+
+    <!-- Live Preview & Analysis Status -->
+    <div id="photoAnalysisState" style="display:none; text-align:center; padding:12px; background:rgba(255,255,255,0.04); border-radius:8px; margin-bottom:16px;">
+      <div class="spinner" style="margin:0 auto 8px auto; width:24px; height:24px;"></div>
+      <p class="caption" id="analysisStateText" style="color:var(--clr-text-1);">Extracting facial tone and body silhouette...</p>
+    </div>
+
+    <div id="photoPreviewSection" style="display:none; align-items:center; gap:12px; margin-bottom:16px; padding:10px; background:rgba(255,255,255,0.04); border-radius:10px;">
+      <img id="modalPreviewImg" src="" style="width:54px; height:54px; border-radius:50%; object-fit:cover; border:2px solid var(--clr-primary);" alt="Preview" />
+      <div style="flex:1;">
+        <p class="body-sm" style="font-weight:600; margin-bottom:2px;">✨ Face & Tone Extracted</p>
+        <p class="caption text-muted" id="modalToneTag">Tone: Medium | Shape: Hourglass</p>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button type="button" id="btnCancelPhoto" class="btn btn-ghost btn-sm">Cancel</button>
+      <button type="button" id="btnApplyAvatarPhoto" class="btn btn-primary btn-sm" style="display:none;">Apply to Avatar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
